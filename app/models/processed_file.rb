@@ -2,7 +2,8 @@ class ProcessedFile < ApplicationRecord
   has_many :processed_items, dependent: :destroy
   
   validates :original_filename, presence: true
-  validates :status, presence: true, inclusion: { in: ['pending', 'processing', 'completed', 'failed'] }
+  validates :status, presence: true, inclusion: { in: ['pending', 'queued', 'processing', 'completed', 'failed'] }
+  
   
   def completed?
     status == 'completed'
@@ -19,4 +20,9 @@ class ProcessedFile < ApplicationRecord
   def processing?
     status == 'processing'
   end
+
+  def queued?
+    status == 'queued'
+  end
+
 end
