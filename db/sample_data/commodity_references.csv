@@ -1,0 +1,31 @@
+GLOBAL_COMM_CODE_DESC,LEVEL1_DESC,LEVEL2_DESC,LEVEL3_DESC,Infinex Scope Status
+Electronic Components,Passive Components,Capacitors,Ceramic Capacitors,In Scope
+Electronic Components,Passive Components,Capacitors,Tantalum Capacitors,In Scope
+Electronic Components,Passive Components,Resistors,Chip Resistors,In Scope
+Electronic Components,Passive Components,Inductors,Power Inductors,In Scope
+Electronic Components,Semiconductor,Microcontrollers,ARM Microcontrollers,In Scope
+Electronic Components,Semiconductor,Memory,DRAM,In Scope
+Electronic Components,Semiconductor,Memory,Flash,In Scope
+Electronic Components,Semiconductor,Logic,Gates,Out of Scope
+Electronic Components,Connectors,Board to Board,Headers,In Scope
+Electronic Components,Connectors,Wire to Board,Terminal Blocks,In Scope
+Electronic Components,Connectors,RF Connectors,SMA Connectors,Out of Scope
+Mechanical Components,Fasteners,Screws,Machine Screws,Out of Scope
+Mechanical Components,Fasteners,Nuts,Hex Nuts,Out of Scope
+Mechanical Components,Enclosures,Plastic Cases,IP65 Enclosures,In Scope
+Mechanical Components,Enclosures,Metal Cases,Aluminum Enclosures,In Scope
+Electromechanical,Switches,Tactile Switches,SMD Tactile Switches,In Scope
+Electromechanical,Switches,Toggle Switches,Panel Mount Switches,In Scope
+Electromechanical,Relays,Power Relays,Automotive Relays,Out of Scope
+Power,Power Supplies,AC-DC Converters,Open Frame PSU,In Scope
+Power,Power Supplies,DC-DC Converters,Isolated Converters,In Scope
+Power,Batteries,Lithium Ion,Cylindrical Cells,Out of Scope
+Power,Batteries,Lithium Polymer,Custom LiPo Packs,Out of Scope
+Sensors,Temperature Sensors,Thermistors,NTC Thermistors,In Scope
+Sensors,Pressure Sensors,MEMS Pressure Sensors,Absolute Pressure,In Scope
+Sensors,Motion Sensors,Accelerometers,3-Axis MEMS,In Scope
+Sensors,Motion Sensors,Gyroscopes,MEMS Gyros,Out of Scope
+RF/Wireless,Antennas,PCB Antennas,Chip Antennas,In Scope
+RF/Wireless,RF Modules,Bluetooth Modules,BLE 5.0 Modules,In Scope
+RF/Wireless,RF Modules,WiFi Modules,802.11ac Modules,In Scope
+RF/Wireless,RF ICs,RF Transceivers,Sub-GHz Transceivers,Out of Scope

@@ -7,6 +7,7 @@ class ExcelProcessorService
   
   def initialize(processed_file)
     @processed_file = processed_file
+    @commodities_cache = {} # Cache para evitar consultas repetidas
   end
   
   def process_upload(file)
@@ -31,10 +32,84 @@ class ExcelProcessorService
       # Guardar el mapeo de columnas
       @processed_file.update(column_mapping: column_mapping)
       
-      # Procesar todas las filas
-      (2..spreadsheet.last_row).each do |i|
-        row = Hash[[header, spreadsheet.row(i)].transpose]
-        process_row(row, column_mapping)
+      # Preparar el procesamiento por lotes
+      total_rows = spreadsheet.last_row - 1 # Excluir encabezado
+      batch_size = 100
+      total_batches = (total_rows / batch_size.to_f).ceil
+      
+      # Procesar todas las filas en lotes
+      (2..spreadsheet.last_row).each_slice(batch_size).with_index do |row_indices, batch_index|
+        Rails.logger.info "Procesando lote #{batch_index + 1} de #{total_batches}..."
+        
+        # Preparar datos para procesamiento en lote
+        batch_rows = []
+        row_indices.each do |i|
+          row_data = Hash[[header, spreadsheet.row(i)].transpose]
+          batch_rows << row_data
+        end
+        
+        # Extraer todas las descripciones para calcular embeddings en lote
+        descriptions = batch_rows.map do |row|
+          description_column = column_mapping['DESCRIPTION']
+          description_column ? row[description_column].to_s.strip : ''
+        end
+        
+        # Filtrar descripciones vacías
+        valid_descriptions = descriptions.select(&:present?)
+        description_indices = descriptions.each_with_index.select { |desc, _| desc.present? }.map { |_, idx| idx }
+        
+        # Obtener embeddings en lote
+        description_embeddings = {}
+        if valid_descriptions.any?
+          embeddings = OpenaiService.get_embeddings(valid_descriptions)
+          
+          description_indices.each_with_index do |row_idx, embed_idx|
+            description = descriptions[row_idx]
+            description_embeddings[description] = embeddings[embed_idx] if embeddings[embed_idx]
+          end
+        end
+        
+        # Procesar cada fila del lote
+        processed_items = []
+        batch_rows.each_with_index do |row, index|
+          values = extract_values(row, column_mapping)
+          
+          # Determinar commodity y scope si hay descripción
+          if values['description'].present?
+            embedding = description_embeddings[values['description']]
+            
+            if embedding
+              # Encontrar commodity más similar (usando caché si ya se procesó)
+              values['embedding'] = embedding
+              
+              # Buscar en caché primero
+              if @commodities_cache.key?(values['description'])
+                similar_commodity = @commodities_cache[values['description']]
+              else
+                similar_commodity = find_similar_commodity(embedding)
+                # Guardar en caché
+                @commodities_cache[values['description']] = similar_commodity if similar_commodity
+              end
+              
+              if similar_commodity
+                values['commodity'] = similar_commodity.level2_desc
+                values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+              else
+                values['commodity'] = 'Unknown'
+                values['scope'] = 'Out of scope'
+              end
+            else
+              values['commodity'] = 'Unknown'
+              values['scope'] = 'Out of scope'
+            end
+          end
+          
+          # Añadir a la lista para inserción en lote
+          processed_items << values
+        end
+        
+        # Crear los items procesados en lote
+        insert_items_batch(processed_items)
       end
       
       # Generar el archivo Excel de salida
@@ -66,8 +141,7 @@ class ExcelProcessorService
     end
   end
   
-  def process_row(row, column_mapping)
-    # Extraer valores según el mapeo
+  def extract_values(row, column_mapping)
     values = {}
     
     TARGET_COLUMNS.each do |target_col|
@@ -81,42 +155,34 @@ class ExcelProcessorService
     values['last_po'] = values['last_po'].to_f if values['last_po'].present?
     values['eau'] = values['eau'].to_i if values['eau'].present?
     
-    # Si hay descripción, obtener el embedding y determinar commodity y scope
-    if values['description'].present?
-      # Obtener embedding para la descripción
-      description_embedding = OpenaiService.get_embedding_for_text(values['description'])
-      
-      # Encontrar commodity más similar
-      similar_commodity = CommodityReference.find_most_similar(description_embedding).first
-      
-      if similar_commodity
-        values['commodity'] = similar_commodity.level2_desc
-        values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
-      else
-        values['commodity'] = 'Unknown'
-        values['scope'] = 'Out of scope'
+    values
+  end
+  
+  def find_similar_commodity(embedding)
+    CommodityReference.find_most_similar(embedding).first
+  end
+  
+  def insert_items_batch(items)
+    # Insertar en lote para mejor rendimiento
+    ActiveRecord::Base.transaction do
+      items.each do |item_values|
+        @processed_file.processed_items.create!(
+          sugar_id: item_values['sugar_id'],
+          item: item_values['item'],
+          mfg_partno: item_values['mfg_partno'],
+          global_mfg_name: item_values['global_mfg_name'],
+          description: item_values['description'],
+          site: item_values['site'],
+          std_cost: item_values['std_cost'],
+          last_purchase_price: item_values['last_purchase_price'],
+          last_po: item_values['last_po'],
+          eau: item_values['eau'],
+          commodity: item_values['commodity'],
+          scope: item_values['scope'],
+          embedding: item_values['embedding']
+        )
       end
-      
-      # Guardar el embedding
-      values['embedding'] = description_embedding
     end
-    
-    # Crear el item procesado
-    @processed_file.processed_items.create!(
-      sugar_id: values['sugar_id'],
-      item: values['item'],
-      mfg_partno: values['mfg_partno'],
-      global_mfg_name: values['global_mfg_name'],
-      description: values['description'],
-      site: values['site'],
-      std_cost: values['std_cost'],
-      last_purchase_price: values['last_purchase_price'],
-      last_po: values['last_po'],
-      eau: values['eau'],
-      commodity: values['commodity'],
-      scope: values['scope'],
-      embedding: values['embedding']
-    )
   end
   
   def generate_output_file
@@ -144,8 +210,8 @@ class ExcelProcessorService
       # Añadir fila de encabezados
       sheet.add_row headers, style: header_style
       
-      # Añadir datos
-      @processed_file.processed_items.find_each do |item|
+      # Procesar items en lotes para evitar problemas de memoria
+      @processed_file.processed_items.find_each(batch_size: 500) do |item|
         sheet.add_row [
           item.sugar_id,
           item.item,

@@ -31,6 +31,9 @@ gem "narray", "~> 0.6.1"         # Para cálculos de matrices más eficientes
 # Para operaciones asíncronas (opcional)
 gem "sidekiq", "~> 7.1"          # Para procesar tareas en segundo plano
 
+#para paginacion
+gem "kaminari", "~> 1.2"
+
 # Para testing
 group :development, :test do
   gem "debug", platforms: %i[ mri mingw x64_mingw ]
