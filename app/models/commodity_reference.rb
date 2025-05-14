@@ -1,0 +1,2 @@
+class CommodityReference < ApplicationRecord
+end
