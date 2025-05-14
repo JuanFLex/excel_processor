@@ -1,16 +1,60 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>ExcelProcessor</title>
+    <title>Excel Processor</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <%= stylesheet_link_tag "application" %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <%= stylesheet_link_tag "application.tailwind", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <%= yield %>
+  <body class="bg-gray-100 min-h-screen">
+    <header class="bg-blue-600 text-white">
+      <div class="container mx-auto px-4 py-4">
+        <div class="flex justify-between items-center">
+          <h1 class="text-xl font-bold">
+            <%= link_to "Excel Processor", root_path %>
+          </h1>
+          <nav>
+            <ul class="flex space-x-4">
+              <li><%= link_to "Inicio", root_path, class: "hover:underline" %></li>
+              <li><%= link_to "Subir archivo", new_file_upload_path, class: "hover:underline" %></li>
+              <li><%= link_to "Referencias", commodity_references_path, class: "hover:underline" %></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <% if notice %>
+        <div class="container mx-auto px-4 mt-4">
+          <div class="flash-notice">
+            <%= notice %>
+          </div>
+        </div>
+      <% end %>
+      
+      <% if alert %>
+        <div class="container mx-auto px-4 mt-4">
+          <div class="flash-alert">
+            <%= alert %>
+          </div>
+        </div>
+      <% end %>
+      
+      <%= yield %>
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-8">
+      <div class="container mx-auto px-4 py-6">
+        <p class="text-center text-gray-400 text-sm">
+          Excel Processor &copy; <%= Date.current.year %>
+        </p>
+      </div>
+    </footer>
   </body>
 </html>

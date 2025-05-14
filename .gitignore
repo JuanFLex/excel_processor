@@ -33,3 +33,15 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+
+# Dependencias de JavaScript
+/node_modules
+/.pnp
+.pnp.js
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencias de Ruby/Rails
+/vendor/bundle
+
