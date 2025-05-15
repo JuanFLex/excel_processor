@@ -45,6 +45,6 @@
   </div>
   
   <div class="mt-4">
-    <%= paginate @commodities %>
+    <%= paginate @commodities if defined?(paginate) %>
   </div>
 </div>

@@ -1,0 +1,18 @@
+                                             Table "public.processed_files"
+      Column       |              Type              | Collation | Nullable |                   Default                   
+-------------------+--------------------------------+-----------+----------+---------------------------------------------
+ id                | bigint                         |           | not null | nextval('processed_files_id_seq'::regclass)
+ original_filename | character varying              |           |          | 
+ status            | character varying              |           |          | 
+ processed_at      | timestamp(6) without time zone |           |          | 
+ created_at        | timestamp(6) without time zone |           | not null | 
+ updated_at        | timestamp(6) without time zone |           | not null | 
+ column_mapping    | jsonb                          |           |          | 
+ result_file_path  | character varying              |           |          | 
+ error_message     | text                           |           |          | 
+Indexes:
+    "processed_files_pkey" PRIMARY KEY, btree (id)
+    "index_processed_files_on_status" btree (status)
+Referenced by:
+    TABLE "processed_items" CONSTRAINT "fk_rails_9358a3edc5" FOREIGN KEY (processed_file_id) REFERENCES processed_files(id)
+

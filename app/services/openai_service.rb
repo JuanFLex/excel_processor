@@ -97,16 +97,30 @@ class OpenaiService
         end
       end
       
-      # Crear un prompt más conciso
+      # Update the prompt to include information about data types
       prompt = <<~PROMPT
-        Headers: #{headers.join(", ")}
+        I need to identify columns in an Excel file with the following headers:
+        #{headers.join(", ")}
         
-        Sample rows:
-        #{sample_data_truncated.map { |row| row.map { |k, v| "#{k}: #{v}" }.join(" | ") }.join("\n")}
+        Here are some sample rows:
+        #{sample_data.map { |row| row.map { |k, v| "#{k}: #{v}" }.join(", ") }.join("\n")}
         
-        Target columns: #{target_columns.join(", ")}
+        The target columns I need to map are:
+        - SUGAR_ID: An identifier (string)
+        - ITEM: An item code (string)
+        - MFG_PARTNO: Part number (string)
+        - GLOBAL_MFG_NAME: Manufacturer name (string)
+        - DESCRIPTION: Item description (string)
+        - SITE: Location (string)
+        - STD_COST: Standard cost (number/price)
+        - LAST_PURCHASE_PRICE: Last purchase price (number/price)
+        - LAST_PO: Last purchase order price (number/price, NOT a date)
+        - EAU: Annual Estimated Usage (integer)
         
-        Map each target column to one of the existing headers. Return a JSON with format {"target_column": "matching_header"} or null if no match.
+        It is VERY IMPORTANT that the columns LAST_PO, STD_COST, and LAST_PURCHASE_PRICE MUST be numeric values (prices), NOT dates.
+        
+        Return the result as a JSON with the format {"target_column": "current_header"}.
+        If you cannot identify a match for a target column, use null as the value.
       PROMPT
       
       response = client.chat(

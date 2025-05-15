@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_05_14_140635) do
+ActiveRecord::Schema[7.1].define(version: 2025_05_14_185122) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -33,6 +33,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_140635) do
     t.datetime "processed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "column_mapping"
+    t.string "result_file_path"
+    t.text "error_message"
     t.index ["status"], name: "index_processed_files_on_status"
   end
 
@@ -52,6 +55,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_140635) do
     t.string "scope"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "embedding"
     t.index ["commodity"], name: "index_processed_items_on_commodity"
     t.index ["item"], name: "index_processed_items_on_item"
     t.index ["mfg_partno"], name: "index_processed_items_on_mfg_partno"

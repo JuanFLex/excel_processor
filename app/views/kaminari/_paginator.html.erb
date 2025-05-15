@@ -1,39 +1,25 @@
-<%= paginator.render do %>
-  <nav class="flex items-center justify-between">
-    <div class="flex-1 flex justify-between items-center">
-      <% if current_page.first? %>
-        <span class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default rounded-md">
-          Anterior
-        </span>
-      <% else %>
-        <%= link_to_prev_page @commodities, 'Anterior', class: 'relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50' %>
-      <% end %>
-      
-      <div class="hidden md:flex">
-        <% each_page do |page| %>
-          <% if page.display_tag? %>
-            <% if page.current? %>
-              <span class="relative inline-flex items-center px-4 py-2 mx-1 text-sm font-medium text-white bg-blue-500 border border-blue-500 cursor-default rounded-md">
-                <%= page.number %>
-              </span>
-            <% else %>
-              <%= link_to page.number, url_for(page: page.number), class: 'relative inline-flex items-center px-4 py-2 mx-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50' %>
-            <% end %>
-          <% elsif page.gap? %>
-            <span class="relative inline-flex items-center px-4 py-2 mx-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 cursor-default rounded-md">
-              ...
-            </span>
-          <% end %>
-        <% end %>
-      </div>
-      
-      <% if current_page.last? %>
-        <span class="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 cursor-default rounded-md">
-          Siguiente
-        </span>
-      <% else %>
-        <%= link_to_next_page @commodities, 'Siguiente', class: 'relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50' %>
-      <% end %>
-    </div>
+<%# The container tag
+  - available local variables
+    current_page:  a page object for the currently displayed page
+    total_pages:   total number of pages
+    per_page:      number of items to fetch per page
+    remote:        data-remote
+    paginator:     the paginator that renders the pagination tags inside
+-%>
+<%= paginator.render do -%>
+  <nav class="pagination" role="navigation" aria-label="pager">
+    <%= first_page_tag unless current_page.first? %>
+    <%= prev_page_tag unless current_page.first? %>
+    <% each_page do |page| -%>
+      <% if page.display_tag? -%>
+        <%= page_tag page %>
+      <% elsif !page.was_truncated? -%>
+        <%= gap_tag %>
+      <% end -%>
+    <% end -%>
+    <% unless current_page.out_of_range? %>
+      <%= next_page_tag unless current_page.last? %>
+      <%= last_page_tag unless current_page.last? %>
+    <% end %>
   </nav>
-<% end %>
+<% end -%>

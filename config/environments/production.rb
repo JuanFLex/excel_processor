@@ -36,8 +36,17 @@ Rails.application.configure do
   # config.action_dispatch.x_sendfile_header = "X-Sendfile" # for Apache
   # config.action_dispatch.x_sendfile_header = "X-Accel-Redirect" # for NGINX
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
+  # Configurar almacenamiento de archivos
   config.active_storage.service = :local
+
+  # Asegurar directorio de almacenamiento existe
+  config.after_initialize do
+    FileUtils.mkdir_p(Rails.root.join('storage'))
+  end
+
+  # Configurar logs
+  config.log_level = :info
+  config.log_tags = [ :request_id ]
 
   # Mount Action Cable outside main process or domain.
   # config.action_cable.mount_path = nil
@@ -56,8 +65,6 @@ Rails.application.configure do
     .tap  { |logger| logger.formatter = ::Logger::Formatter.new }
     .then { |logger| ActiveSupport::TaggedLogging.new(logger) }
 
-  # Prepend all log lines with the following tags.
-  config.log_tags = [ :request_id ]
 
   # "info" includes generic and useful information about system operation, but avoids logging too much
   # information to avoid inadvertent exposure of personally identifiable information (PII). If you
@@ -87,6 +94,10 @@ Rails.application.configure do
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
 
+  config.active_job.queue_adapter = :async
+  config.active_job.queue_adapter.max_threads = ENV.fetch("MAX_THREADS", 5).to_i
+
+  config.middleware.use Rack::Deflater
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
   #   "example.com",     # Allow requests from example.com

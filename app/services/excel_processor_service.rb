@@ -230,7 +230,8 @@ class ExcelProcessorService
       
       # Autoajustar columnas
       sheet.auto_filter = "A1:L1"
-      sheet.auto_width = true
+      # Ajustar el ancho de las columnas
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15
     end
     
     # Guardar el archivo
