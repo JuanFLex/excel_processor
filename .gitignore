@@ -45,3 +45,6 @@ yarn-error.log*
 # Dependencias de Ruby/Rails
 /vendor/bundle
 
+
+/app/assets/builds/*
+!/app/assets/builds/.keep
