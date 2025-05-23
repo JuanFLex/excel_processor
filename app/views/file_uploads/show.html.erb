@@ -1,23 +1,23 @@
 <div class="container mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold mb-6">Detalles del archivo procesado</h1>
+  <h1 class="text-2xl font-bold mb-6">Processed File Details</h1>
   
   <div class="mb-6">
-    <%= link_to "← Volver al listado", file_uploads_path, class: "text-blue-500 hover:text-blue-700" %>
+    <%= link_to "← Back to list", file_uploads_path, class: "text-blue-500 hover:text-blue-700" %>
     
     <% if @processed_file.completed? && @processed_file.result_file_path.present? %>
-      <%= link_to "Descargar archivo procesado", download_file_upload_path(@processed_file), class: "bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-4" %>
+      <%= link_to "Download processed file", download_file_upload_path(@processed_file), class: "bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-4" %>
     <% end %>
   </div>
   
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="bg-white shadow-md rounded-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Información del archivo</h2>
+      <h2 class="text-xl font-semibold mb-4">File Information</h2>
       
       <div class="mb-4">
-        <p><strong>Nombre original:</strong> <%= @processed_file.original_filename %></p>
+        <p><strong>Original name:</strong> <%= @processed_file.original_filename %></p>
 
         <div data-controller="status">
-          <p><strong>Estado:</strong> 
+          <p><strong>Status:</strong> 
             <span data-status-target="status" 
                   data-status="<%= @processed_file.status %>"
                   data-url="<%= status_file_upload_path(@processed_file) %>"
@@ -31,20 +31,20 @@
           </p>
           
           <% if @processed_file.status == 'queued' || @processed_file.processing? %>
-            <p class="text-sm text-gray-500 mt-2">El archivo está siendo procesado. Esta página se actualizará automáticamente cuando el procesamiento termine.</p>
+            <p class="text-sm text-gray-500 mt-2">The file is being processed. This page will update automatically when processing is complete.</p>
           <% end %>
         </div>
 
         
-        <p><strong>Subido el:</strong> <%= @processed_file.created_at.strftime("%d/%m/%Y %H:%M") %></p>
+        <p><strong>Uploaded on:</strong> <%= @processed_file.created_at.strftime("%d/%m/%Y %H:%M") %></p>
         <% if @processed_file.processed_at.present? %>
-          <p><strong>Procesado el:</strong> <%= @processed_file.processed_at.strftime("%d/%m/%Y %H:%M") %></p>
+          <p><strong>Processed on:</strong> <%= @processed_file.processed_at.strftime("%d/%m/%Y %H:%M") %></p>
         <% end %>
       </div>
       
       <% if @processed_file.column_mapping.present? %>
         <div class="mt-6">
-          <h3 class="text-lg font-semibold mb-2">Mapeo de columnas identificado</h3>
+          <h3 class="text-lg font-semibold mb-2">Identified Column Mapping</h3>
           <div class="bg-gray-50 p-4 rounded">
             <pre class="text-sm text-gray-700 whitespace-pre-wrap"><%= JSON.pretty_generate(@processed_file.column_mapping) %></pre>
           </div>
@@ -53,7 +53,7 @@
     </div>
     
     <div class="bg-white shadow-md rounded-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Vista previa de items procesados</h2>
+      <h2 class="text-xl font-semibold mb-4">Processed Items Preview</h2>
       
       <% if @items_sample.present? %>
         <div class="overflow-x-auto">
@@ -61,7 +61,7 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commodity</th>
                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope</th>
               </tr>
@@ -85,10 +85,10 @@
         </div>
         
         <div class="mt-4 text-gray-500 text-sm">
-          <p>Mostrando <%= @items_sample.size %> de <%= @processed_file.processed_items.count %> items procesados.</p>
+          <p>Showing <%= @items_sample.size %> of <%= @processed_file.processed_items.count %> processed items.</p>
         </div>
       <% else %>
-        <p class="text-gray-500">No hay items procesados aún.</p>
+        <p class="text-gray-500">No items have been processed yet.</p>
       <% end %>
     </div>
   </div>

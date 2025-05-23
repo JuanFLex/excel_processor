@@ -6,7 +6,6 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     
-
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
     <%= stylesheet_link_tag "application.tailwind", "data-turbo-track": "reload" %>
@@ -22,9 +21,9 @@
           </h1>
           <nav>
             <ul class="flex space-x-4">
-              <li><%= link_to "Inicio", root_path, class: "hover:underline" %></li>
-              <li><%= link_to "Subir archivo", new_file_upload_path, class: "hover:underline" %></li>
-              <li><%= link_to "Referencias", commodity_references_path, class: "hover:underline" %></li>
+              <li><%= link_to "Home", root_path, class: "hover:underline" %></li>
+              <li><%= link_to "Upload file", new_file_upload_path, class: "hover:underline" %></li>
+              <li><%= link_to "References", commodity_references_path, class: "hover:underline" %></li>
             </ul>
           </nav>
         </div>

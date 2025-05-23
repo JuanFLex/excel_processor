@@ -1,9 +1,9 @@
 <div class="container mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold mb-6">Referencias de Commodities</h1>
+  <h1 class="text-2xl font-bold mb-6">Commodity References</h1>
   
   <div class="mb-6">
-    <%= link_to "← Volver a Inicio", root_path, class: "text-blue-500 hover:text-blue-700 mr-4" %>
-    <%= link_to "Subir archivo de referencias", upload_commodity_references_path, class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" %>
+    <%= link_to "← Back to Home", root_path, class: "text-blue-500 hover:text-blue-700 mr-4" %>
+    <%= link_to "Upload reference file", upload_commodity_references_path, class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" %>
   </div>
   
   <div class="bg-white shadow-md rounded-lg overflow-hidden">
@@ -36,7 +36,7 @@
         <% if @commodities.empty? %>
           <tr>
             <td colspan="5" class="px-6 py-4 text-center text-gray-500">
-              No hay referencias de commodities aún. Por favor, suba un archivo de referencias.
+              No commodity references available yet. Please upload a reference file.
             </td>
           </tr>
         <% end %>
