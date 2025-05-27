@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Script para mostrar logs de demo en tiempo real
+echo "🎬 Starting DEMO log visualization..."
+echo "📺 Showing demonstration messages only..."
+echo "🎯 Press Ctrl+C to stop"
+echo ""
+echo "==========================================="
+echo ""
+
+# Verificar si el archivo de log existe
+if [ ! -f "log/development.log" ]; then
+    echo "❌ Error: log/development.log not found"
+    echo "Make sure you're running this from the Rails root directory"
+    exit 1
+fi
+
+# Mostrar logs filtrados con colores
+tail -f log/development.log | grep --line-buffered "\[DEMO\]" | while read line; do
+    # Extraer la fecha/hora del log
+    timestamp=$(echo "$line" | cut -d' ' -f1-2)
+    # Extraer el mensaje sin la fecha
+    message=$(echo "$line" | sed 's/.*\[DEMO\]/[DEMO]/')
+    
+    # Colorear los diferentes tipos de mensajes
+    if echo "$message" | grep -q "ERROR\|❌"; then
+        echo -e "\033[31m[$timestamp] $message\033[0m"  # Rojo para errores
+    elif echo "$message" | grep -q "✅\|🎉\|✨"; then
+        echo -e "\033[32m[$timestamp] $message\033[0m"  # Verde para éxitos
+    elif echo "$message" | grep -q "🤖\|🧠\|🚀"; then
+        echo -e "\033[33m[$timestamp] $message\033[0m"  # Amarillo para AI
+    elif echo "$message" | grep -q "🎯\|📊\|💾"; then
+        echo -e "\033[36m[$timestamp] $message\033[0m"  # Cyan para procesamiento
+    elif echo "$message" | grep -q "⚡\|🔄\|🔍"; then
+        echo -e "\033[35m[$timestamp] $message\033[0m"  # Magenta para optimización
+    else
+        echo -e "[$timestamp] $message"  # Normal para otros
+    fi
+done

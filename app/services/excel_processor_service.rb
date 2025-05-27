@@ -14,32 +14,53 @@ class ExcelProcessorService
     begin
       # Actualizar estado
       @processed_file.update(status: 'processing')
+      Rails.logger.info "🚀 [DEMO] Starting file processing: #{@processed_file.original_filename}"
       
       # Leer el archivo Excel
+      Rails.logger.info "📖 [DEMO] Reading Excel file and analyzing structure..."
       spreadsheet = open_spreadsheet(file)
       header = spreadsheet.row(1)
+      total_rows = spreadsheet.last_row - 1
+      
+      Rails.logger.info "📊 [DEMO] File processed: #{total_rows} data rows detected"
+      Rails.logger.info "📋 [DEMO] Columns found: #{header.join(', ')}"
       
       # Obtener una muestra de filas para identificación de columnas
+      Rails.logger.info "🤖 [DEMO] Sending data sample to OpenAI for column identification..."
       sample_rows = []
       (2..6).each do |i|
         row = Hash[[header, spreadsheet.row(i)].transpose]
         sample_rows << row if i <= spreadsheet.last_row
       end
       
+      Rails.logger.info "🔍 [DEMO] OpenAI is analyzing #{sample_rows.size} sample rows..."
+      
       # Usar OpenAI para identificar las columnas
       column_mapping = OpenaiService.identify_columns(sample_rows, TARGET_COLUMNS)
+      
+      Rails.logger.info "✅ [DEMO] Columns successfully identified by AI!"
+      column_mapping.each do |target, source|
+        if source
+          Rails.logger.info "   🎯 [DEMO] #{target} ← #{source}"
+        else
+          Rails.logger.info "   ❌ [DEMO] #{target} ← (not found)"
+        end
+      end
       
       # Guardar el mapeo de columnas
       @processed_file.update(column_mapping: column_mapping)
       
+      Rails.logger.info "💾 [DEMO] Preparing to process #{total_rows} rows with AI..."
+      
       # Preparar el procesamiento por lotes
-      total_rows = spreadsheet.last_row - 1 # Excluir encabezado
       batch_size = 100
       total_batches = (total_rows / batch_size.to_f).ceil
       
+      Rails.logger.info "⚡ [DEMO] Optimized processing: #{total_batches} batches of max #{batch_size} rows"
+      
       # Procesar todas las filas en lotes
       (2..spreadsheet.last_row).each_slice(batch_size).with_index do |row_indices, batch_index|
-        Rails.logger.info "Procesando lote #{batch_index + 1} de #{total_batches}..."
+        Rails.logger.info "🔄 [DEMO] Processing batch #{batch_index + 1} of #{total_batches}..."
         
         # Preparar datos para procesamiento en lote
         batch_rows = []
@@ -57,11 +78,16 @@ class ExcelProcessorService
         # Filtrar descripciones vacías
         valid_descriptions = descriptions.select(&:present?)
         description_indices = descriptions.each_with_index.select { |desc, _| desc.present? }.map { |_, idx| idx }
+        valid_count = valid_descriptions.size
+        
+        Rails.logger.info "🧠 [DEMO] Generating AI embeddings for #{valid_count} product descriptions..."
         
         # Obtener embeddings en lote
         description_embeddings = {}
         if valid_descriptions.any?
+          Rails.logger.info "🚀 [DEMO] Sending #{valid_descriptions.size} descriptions to OpenAI for analysis..."
           embeddings = OpenaiService.get_embeddings(valid_descriptions)
+          Rails.logger.info "⚡ [DEMO] Embeddings generated! Each description now has a #{embeddings.first&.size || 0}-dimensional 'fingerprint'"
           
           description_indices.each_with_index do |row_idx, embed_idx|
             description = descriptions[row_idx]
@@ -70,7 +96,12 @@ class ExcelProcessorService
         end
         
         # Procesar cada fila del lote
+        Rails.logger.info "🎯 [DEMO] Classifying products by comparing against catalog of #{CommodityReference.count} references..."
+        
         processed_items = []
+        classified_count = 0
+        cache_hits = 0
+        
         batch_rows.each_with_index do |row, index|
           values = extract_values(row, column_mapping)
           
@@ -85,6 +116,7 @@ class ExcelProcessorService
               # Buscar en caché primero
               if @commodities_cache.key?(values['description'])
                 similar_commodity = @commodities_cache[values['description']]
+                cache_hits += 1
               else
                 similar_commodity = find_similar_commodity(embedding)
                 # Guardar en caché
@@ -94,6 +126,12 @@ class ExcelProcessorService
               if similar_commodity
                 values['commodity'] = similar_commodity.level2_desc
                 values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+                classified_count += 1
+                
+                # Log ocasional para mostrar clasificaciones exitosas
+                if index % 10 == 0  # Cada 10 items
+                  Rails.logger.info "   ✨ [DEMO] '#{values['description'][0..50]}...' → Classified as: #{values['commodity']}"
+                end
               else
                 values['commodity'] = 'Unknown'
                 values['scope'] = 'Out of scope'
@@ -108,12 +146,27 @@ class ExcelProcessorService
           processed_items << values
         end
         
+        Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products successfully classified"
+        if cache_hits > 0
+          Rails.logger.info "⚡ [DEMO] Cache efficiency: #{cache_hits} classifications reused from memory"
+        end
+        
         # Crear los items procesados en lote
+        Rails.logger.info "💾 [DEMO] Saving #{processed_items.size} processed products to database..."
         insert_items_batch(processed_items)
       end
       
+      Rails.logger.info "🎨 [DEMO] Generating standardized Excel file with all classifications..."
+      
       # Generar el archivo Excel de salida
       generate_output_file
+      
+      Rails.logger.info "🎉 [DEMO] Processing completed successfully!"
+      Rails.logger.info "📈 [DEMO] Final statistics:"
+      Rails.logger.info "   📊 Total products processed: #{@processed_file.processed_items.count}"
+      Rails.logger.info "   🎯 Products classified: #{@processed_file.processed_items.where.not(commodity: 'Unknown').count}"
+      Rails.logger.info "   ✅ In scope: #{@processed_file.processed_items.where(scope: 'In scope').count}"
+      Rails.logger.info "   ❌ Out of scope: #{@processed_file.processed_items.where(scope: 'Out of scope').count}"
       
       # Actualizar estado
       @processed_file.update(status: 'completed', processed_at: Time.current)
@@ -121,7 +174,7 @@ class ExcelProcessorService
       { success: true }
     rescue => e
       @processed_file.update(status: 'failed')
-      Rails.logger.error("Error processing file: #{e.message}")
+      Rails.logger.error("❌ [DEMO] ERROR: #{e.message}")
       { success: false, error: e.message }
     end
   end
@@ -150,12 +203,46 @@ class ExcelProcessorService
     end
     
     # Convertir tipos de datos según sea necesario
-    values['std_cost'] = values['std_cost'].to_f if values['std_cost'].present?
-    values['last_purchase_price'] = values['last_purchase_price'].to_f if values['last_purchase_price'].present?
-    values['last_po'] = values['last_po'].to_f if values['last_po'].present?
+    values['std_cost'] = clean_monetary_value(values['std_cost'])
+    values['last_purchase_price'] = clean_monetary_value(values['last_purchase_price'])
+    values['last_po'] = clean_monetary_value(values['last_po'])
     values['eau'] = values['eau'].to_i if values['eau'].present?
     
     values
+  end
+  
+  # Método para limpiar y convertir valores monetarios a números
+  def clean_monetary_value(value)
+    return nil if value.nil?
+    return value if value.is_a?(Numeric)
+    
+    # Si es una fecha, intentar extraer algo numérico o devolver 0
+    if value.is_a?(Date) || value.is_a?(Time) || value.is_a?(DateTime)
+      return 0.0
+    end
+    
+    # Convertir a string para manipulación
+    str_value = value.to_s.strip
+    
+    # Devolver 0 si está vacío después de strip
+    return 0.0 if str_value.empty?
+    
+    # Eliminar símbolos de moneda, espacios y caracteres no numéricos
+    # excepto punto decimal, coma como separador decimal y signo negativo
+    cleaned = str_value.gsub(/[$€£¥\s,]/, '')  # Eliminar símbolos de moneda, espacios y comas
+                      .gsub(/[^\d.-]/, '')      # Mantener solo dígitos, punto, guion
+    
+    # Manejar formato europeo (coma como separador decimal)
+    if str_value.include?(',') && !str_value.include?('.')
+      cleaned = cleaned.gsub(',', '.')
+    end
+    
+    # Convertir a float o devolver 0 si hay error
+    begin
+      cleaned.to_f
+    rescue
+      0.0
+    end
   end
   
   def find_similar_commodity(embedding)
@@ -186,6 +273,8 @@ class ExcelProcessorService
   end
   
   def generate_output_file
+    Rails.logger.info "📝 [DEMO] Creating Excel workbook with standardized format..."
+    
     # Crear un nuevo archivo Excel
     package = Axlsx::Package.new
     workbook = package.workbook
@@ -199,6 +288,8 @@ class ExcelProcessorService
         'LAST_PO', 'EAU', 'Commodity', 'Scope'
       ]
       
+      Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
+      
       # Estilo para encabezados
       header_style = workbook.styles.add_style(
         bg_color: "0066CC",
@@ -209,6 +300,8 @@ class ExcelProcessorService
       
       # Añadir fila de encabezados
       sheet.add_row headers, style: header_style
+      
+      Rails.logger.info "💾 [DEMO] Writing #{@processed_file.processed_items.count} classified products to Excel..."
       
       # Procesar items en lotes para evitar problemas de memoria
       @processed_file.processed_items.find_each(batch_size: 500) do |item|
@@ -237,6 +330,9 @@ class ExcelProcessorService
     # Guardar el archivo
     file_path = Rails.root.join('storage', "processed_#{@processed_file.id}_#{Time.current.to_i}.xlsx")
     package.serialize(file_path)
+    
+    Rails.logger.info "✅ [DEMO] Excel file successfully generated: #{File.basename(file_path)}"
+    Rails.logger.info "📁 [DEMO] File size: #{(File.size(file_path) / 1024.0).round(2)} KB"
     
     # Guardar la ruta del archivo en el modelo
     @processed_file.update(result_file_path: file_path.to_s)
