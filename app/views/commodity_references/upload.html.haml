@@ -1,0 +1,82 @@
+.min-h-screen.bg-white
+  .max-w-4xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    / Header
+    .mb-12
+      = link_to "← Back to References", commodity_references_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 Upload Commodity References File
+      %p.text-sm.text-gray-600 Import commodity classifications and scope definitions
+
+    / Upload Form
+    = form_with(url: process_upload_commodity_references_path, method: :post, local: true, multipart: true, scope: :commodity_upload, class: "space-y-8") do |form|
+      / Upload Area
+      .border-2.border-dashed.border-gray-300.rounded-lg.p-8.text-center.hover:border-gray-400.transition-colors
+        = form.file_field :file, class: "sr-only", id: "file-input", accept: ".csv", required: true, onchange: "updateFileName(this)"
+        %label.cursor-pointer{for: "file-input"}
+          %p.text-sm.text-gray-600.mb-4 Select your CSV file or drag and drop here
+          %span.inline-block.px-5.py-2.5.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-md.transition-colors
+            Choose File
+          %p.mt-4.text-xs.text-gray-500#file-name No file selected
+          %p.text-xs.text-gray-400.mt-1 Supports: .csv only
+
+      / Required Columns
+      %div
+        %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-4 Required File Format
+        %p.text-sm.text-gray-600.mb-4 Your CSV file must contain these exact column headers:
+        
+        .bg-gray-50.rounded-lg.p-4.mb-4
+          .grid.grid-cols-1.gap-2.text-xs.font-mono.text-gray-700
+            - %w[GLOBAL_COMM_CODE_DESC LEVEL1_DESC LEVEL2_DESC LEVEL3_DESC].each do |col|
+              %span= col
+            %span Infinex Scope Status
+
+        .border-l-4.border-blue-400.bg-blue-50.p-4.rounded-r-lg
+          %h3.text-sm.font-medium.text-blue-800.mb-2 Important Notes
+          %ul.text-xs.text-blue-700.space-y-1
+            %li • Column headers must match exactly (case-sensitive)
+            %li • This file will replace all existing commodity references
+            %li • Infinex Scope Status should be "In Scope" or "Out of Scope"
+
+      / Submit Button
+      .text-center.pt-4
+        = form.submit "Process File", 
+          class: "px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer"
+
+:javascript
+  function updateFileName(input) {
+      const fileName = input.files[0]?.name || 'No file selected';
+      const fileNameEl = document.getElementById('file-name');
+      fileNameEl.textContent = fileName;
+      
+      if (input.files[0]) {
+          fileNameEl.classList.remove('text-gray-500');
+          fileNameEl.classList.add('text-gray-900', 'font-medium');
+      }
+  }
+
+  // Drag and drop functionality
+  const dropZone = document.querySelector('.border-dashed');
+  const fileInput = document.getElementById('file-input');
+
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.add('border-gray-400', 'bg-gray-50'), false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-gray-400', 'bg-gray-50'), false);
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      fileInput.files = files;
+      updateFileName(fileInput);
+  });

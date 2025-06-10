@@ -1,0 +1,100 @@
+.min-h-screen.bg-white
+  .max-w-4xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    / Header
+    .mb-12
+      = link_to "← Back", file_uploads_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 Upload Excel File
+      %p.text-sm.text-gray-600 Transform your unstructured data into standardized format
+
+    / Upload Form
+    = form_with(url: file_uploads_path, method: :post, local: true, multipart: true, scope: :file_upload, class: "space-y-8") do |form|
+      / Upload Area
+      .border-2.border-dashed.border-gray-300.rounded-lg.p-8.text-center.hover:border-gray-400.transition-colors
+        = form.file_field :file, class: "sr-only", id: "file-input", accept: ".xlsx,.xls,.csv", required: true, onchange: "updateFileName(this)"
+        %label.cursor-pointer{for: "file-input"}
+          %p.text-sm.text-gray-600.mb-4 Drag and drop your file here, or
+          %span.inline-block.px-5.py-2.5.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-md.transition-colors
+            Choose File
+          %p.mt-4.text-xs.text-gray-500#file-name No file selected
+          %p.text-xs.text-gray-400.mt-1 Supports: .xlsx, .xls, .csv (Max 10MB)
+
+      / Output Columns
+      %div
+        %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-4 Output Format
+        %p.text-sm.text-gray-600.mb-4 Your file will be processed and standardized with these columns:
+        
+        .bg-gray-50.rounded-lg.p-4.mb-4
+          .grid.grid-cols-2.md:grid-cols-3.gap-2.text-xs.font-mono.text-gray-700
+            - %w[SUGAR_ID ITEM MFG_PARTNO GLOBAL_MFG_NAME DESCRIPTION SITE STD_COST LAST_PURCHASE_PRICE LAST_PO EAU].each do |col|
+              %span= col
+
+        .grid.grid-cols-1.md:grid-cols-2.gap-3
+          .border.border-green-200.rounded-lg.p-3.bg-green-50
+            %p.text-sm.font-medium.text-green-800 AI-Generated Commodity
+            %p.text-xs.text-green-600.mt-0.5 Automatically classified by AI
+          
+          .border.border-blue-200.rounded-lg.p-3.bg-blue-50
+            %p.text-sm.font-medium.text-blue-800 Scope Classification
+            %p.text-xs.text-blue-600.mt-0.5 In scope / Out of scope detection
+
+      / Processing Info
+      .border-l-4.border-amber-400.bg-amber-50.p-4.rounded-r-lg
+        %h3.text-sm.font-medium.text-amber-800.mb-2 Processing Information
+        %ul.text-xs.text-amber-700.space-y-1
+          %li • Processing happens asynchronously in the background
+          %li • You'll receive real-time status updates
+          %li • Download your processed file when ready
+
+      / Submit Button
+      .text-center.pt-4
+        = form.submit "Start Processing", 
+          class: "px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer"
+
+    / Sample File
+    .mt-12.border-t.border-gray-200.pt-8
+      .flex.items-start.justify-between
+        %div
+          %h3.text-sm.font-medium.text-gray-900.mb-1 Need a sample file?
+          %p.text-sm.text-gray-600 Download our sample Excel file to test the system
+        = link_to "Download Sample", download_sample_file_uploads_path, 
+          class: "text-sm text-green-600 hover:text-green-700 font-medium"
+
+:javascript
+  function updateFileName(input) {
+      const fileName = input.files[0]?.name || 'No file selected';
+      const fileNameEl = document.getElementById('file-name');
+      fileNameEl.textContent = fileName;
+      
+      if (input.files[0]) {
+          fileNameEl.classList.remove('text-gray-500');
+          fileNameEl.classList.add('text-gray-900', 'font-medium');
+      }
+  }
+
+  // Drag and drop
+  const dropZone = document.querySelector('.border-dashed');
+  const fileInput = document.getElementById('file-input');
+
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+  }
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.add('border-gray-400', 'bg-gray-50'), false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-gray-400', 'bg-gray-50'), false);
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      fileInput.files = files;
+      updateFileName(fileInput);
+  });

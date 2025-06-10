@@ -13,11 +13,11 @@
   </head>
 
   <body class="bg-gray-100 min-h-screen">
-    <header class="bg-blue-600 text-white">
-      <div class="container mx-auto px-4 py-4">
+    <header style="background-color: #5d6268; color: white;">
+      <div class="container mx-auto px-4 py-0">
         <div class="flex justify-between items-center">
           <h1 class="text-xl font-bold">
-            <%= link_to "Excel Processor", root_path %>
+            <%= link_to image_tag("logo.png", alt: "Logo", class: "h-12 inline"), root_path %>
           </h1>
           <nav>
             <ul class="flex space-x-4">
@@ -33,7 +33,7 @@
     <main>
       <% if notice %>
         <div class="container mx-auto px-4 mt-4">
-          <div class="flash-notice">
+          <div class="flash-notice bg-orange-600 text-white p-2 rounded">
             <%= notice %>
           </div>
         </div>
@@ -41,7 +41,7 @@
       
       <% if alert %>
         <div class="container mx-auto px-4 mt-4">
-          <div class="flash-alert">
+          <div class="flash-alert bg-red-500 text-white p-2 rounded">
             <%= alert %>
           </div>
         </div>
@@ -50,7 +50,7 @@
       <%= yield %>
     </main>
 
-    <footer class="bg-gray-800 text-white mt-8">
+    <footer style="background-color: #101920; color: white; margin-top: 2rem;">
       <div class="container mx-auto px-4 py-6">
         <p class="text-center text-gray-400 text-sm">
           Excel Processor &copy; <%= Date.current.year %>

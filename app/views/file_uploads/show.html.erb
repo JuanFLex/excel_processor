@@ -1,95 +1,154 @@
-<div class="container mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold mb-6">Processed File Details</h1>
-  
-  <div class="mb-6">
-    <%= link_to "← Back to list", file_uploads_path, class: "text-blue-500 hover:text-blue-700" %>
-    
-    <% if @processed_file.completed? && @processed_file.result_file_path.present? %>
-      <%= link_to "Download processed file", download_file_upload_path(@processed_file), class: "bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-4" %>
-    <% end %>
-  </div>
-  
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-white shadow-md rounded-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">File Information</h2>
-      
-      <div class="mb-4">
-        <p><strong>Original name:</strong> <%= @processed_file.original_filename %></p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; }
+        tbody tr:hover { background-color: rgba(249, 250, 251, 0.6); }
+        .border { transition: border-color 0.2s ease; }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+            <!-- Header -->
+            <div class="mb-12">
+                <a href="/file_uploads" class="text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block">← Back</a>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h1 class="text-2xl font-medium text-gray-900"><%= @processed_file.original_filename %></h1>
+                        <p class="text-sm text-gray-500 mt-1">ID <%= @processed_file.id %></p>
+                    </div>
+                    <% if @processed_file.completed? && @processed_file.result_file_path.present? %>
+                        <%= link_to "Download Result", download_file_upload_path(@processed_file), 
+                            class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors" %>
+                    <% end %>
+                </div>
+            </div>
 
-        <div data-controller="status">
-          <p><strong>Status:</strong> 
-            <span data-status-target="status" 
-                  data-status="<%= @processed_file.status %>"
-                  data-url="<%= status_file_upload_path(@processed_file) %>"
-                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    <%= @processed_file.completed? ? 'bg-green-100 text-green-800' : 
-                        @processed_file.failed? ? 'bg-red-100 text-red-800' : 
-                        @processed_file.processing? ? 'bg-yellow-100 text-yellow-800' : 
-                        @processed_file.status == 'queued' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800' %>">
-              <%= @processed_file.status.titleize %>
-            </span>
-          </p>
-          
-          <% if @processed_file.status == 'queued' || @processed_file.processing? %>
-            <p class="text-sm text-gray-500 mt-2">The file is being processed. This page will update automatically when processing is complete.</p>
-          <% end %>
-        </div>
+            <!-- Status Bar -->
+            <% status_color = {'completed' => 'green', 'processing' => 'blue', 'queued' => 'amber', 'failed' => 'red'}[@processed_file.status] || 'gray' %>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-gray-50 rounded-lg mb-12">
+                <div>
+                    <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Status</p>
+                    <p class="text-sm font-medium text-<%= status_color %>-600"><%= @processed_file.status.titleize %></p>
+                </div>
+                <% [['Uploaded', @processed_file.created_at], 
+                    ['Completed', @processed_file.processed_at], 
+                    ['Total Items', @processed_file.processed_items.count]].each do |label, value| %>
+                    <div>
+                        <p class="text-xs uppercase tracking-wider text-gray-500 mb-1"><%= label %></p>
+                        <p class="text-sm font-medium text-gray-900">
+                            <%= value.is_a?(Time) ? value.strftime("%b %d · %H:%M") : (value || '—') %>
+                        </p>
+                    </div>
+                <% end %>
+            </div>
 
-        
-        <p><strong>Uploaded on:</strong> <%= @processed_file.created_at.strftime("%d/%m/%Y %H:%M") %></p>
-        <% if @processed_file.processed_at.present? %>
-          <p><strong>Processed on:</strong> <%= @processed_file.processed_at.strftime("%d/%m/%Y %H:%M") %></p>
-        <% end %>
-      </div>
-      
-      <% if @processed_file.column_mapping.present? %>
-        <div class="mt-6">
-          <h3 class="text-lg font-semibold mb-2">Identified Column Mapping</h3>
-          <div class="bg-gray-50 p-4 rounded">
-            <pre class="text-sm text-gray-700 whitespace-pre-wrap"><%= JSON.pretty_generate(@processed_file.column_mapping) %></pre>
-          </div>
+            <!-- Main Content -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Column Mapping -->
+                <section>
+                    <h2 class="text-sm font-medium text-gray-900 uppercase tracking-wider mb-6">Column Mapping</h2>
+                    <% if @processed_file.column_mapping&.any? %>
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <% ['Target Field', 'Source Column', 'Status'].each_with_index do |header, i| %>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider <%= 'text-right' if i == 2 %>">
+                                                <%= header %>
+                                            </th>
+                                        <% end %>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <% @processed_file.column_mapping.each do |target, source| %>
+                                        <tr>
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900"><%= target %></td>
+                                            <td class="px-6 py-4 text-sm text-gray-600"><%= source || '—' %></td>
+                                            <td class="px-6 py-4 text-right text-xs font-medium <%= source ? 'text-green-600' : 'text-red-600' %>">
+                                                <%= source ? 'Mapped' : 'Missing' %>
+                                            </td>
+                                        </tr>
+                                    <% end %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% else %>
+                        <div class="bg-gray-50 rounded-lg p-12 text-center">
+                            <p class="text-sm text-gray-500">No mapping data available</p>
+                        </div>
+                    <% end %>
+                </section>
+
+                <!-- Processing Summary -->
+                <section>
+                    <h2 class="text-sm font-medium text-gray-900 uppercase tracking-wider mb-6">Processing Summary</h2>
+                    <% if @items_sample&.any? %>
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="p-6 bg-white border border-green-200 rounded-lg">
+                                <p class="text-2xl font-semibold text-green-700">
+                                    <%= number_with_delimiter(@processed_file.processed_items.where(scope: 'In scope').count) %>
+                                </p>
+                                <p class="text-xs uppercase tracking-wider text-green-600 mt-1">In Scope</p>
+                            </div>
+                            <div class="p-6 bg-white border border-red-200 rounded-lg">
+                                <p class="text-2xl font-semibold text-red-700">
+                                    <%= number_with_delimiter(@processed_file.processed_items.where(scope: 'Out of scope').count) %>
+                                </p>
+                                <p class="text-xs uppercase tracking-wider text-red-600 mt-1">Out of Scope</p>
+                            </div>
+                        </div>
+
+                        <h3 class="text-xs font-medium text-gray-700 uppercase tracking-wider mb-3">
+                            Sample Items <span class="text-gray-400 font-normal">(showing <%= [@items_sample.size, 10].min %> of <%= number_with_delimiter(@processed_file.processed_items.count) %>)</span>
+                        </h3>
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <table class="min-w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <% ['Item', 'Description', 'Commodity', 'Scope'].each_with_index do |header, i| %>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider <%= 'text-center' if i == 3 %>">
+                                                <%= header %>
+                                            </th>
+                                        <% end %>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <% @items_sample.first(10).each do |item| %>
+                                        <tr>
+                                            <td class="px-4 py-3 text-sm text-gray-900"><%= truncate(item.item, length: 25) %></td>
+                                            <td class="px-4 py-3 text-sm text-gray-600"><%= truncate(item.description, length: 40) %></td>
+                                            <td class="px-4 py-3 text-sm text-gray-600"><%= item.commodity || '—' %></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span class="inline-flex px-2 py-1 text-xs font-medium rounded <%= item.scope == 'In scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50' %>">
+                                                    <%= item.scope %>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <% end %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% else %>
+                        <div class="bg-gray-50 rounded-lg p-12 text-center">
+                            <p class="text-sm text-gray-500"><%= @processed_file.processing? ? 'Processing in progress' : 'No items processed yet' %></p>
+                        </div>
+                    <% end %>
+                </section>
+            </div>
+
+            <% if @processed_file.error_message.present? %>
+                <div class="mt-8 p-6 bg-red-50 border border-red-200 rounded-lg">
+                    <h3 class="text-sm font-medium text-red-900 mb-2">Processing Error</h3>
+                    <p class="text-sm text-red-700"><%= @processed_file.error_message %></p>
+                </div>
+            <% end %>
         </div>
-      <% end %>
     </div>
-    
-    <div class="bg-white shadow-md rounded-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Processed Items Preview</h2>
-      
-      <% if @items_sample.present? %>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commodity</th>
-                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <% @items_sample.each do |item| %>
-                <tr>
-                  <td class="px-4 py-2 text-sm text-gray-900"><%= item.item %></td>
-                  <td class="px-4 py-2 text-sm text-gray-500"><%= truncate(item.description, length: 50) %></td>
-                  <td class="px-4 py-2 text-sm text-gray-500"><%= item.commodity %></td>
-                  <td class="px-4 py-2 text-sm">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      <%= item.scope == 'In scope' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
-                      <%= item.scope %>
-                    </span>
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="mt-4 text-gray-500 text-sm">
-          <p>Showing <%= @items_sample.size %> of <%= @processed_file.processed_items.count %> processed items.</p>
-        </div>
-      <% else %>
-        <p class="text-gray-500">No items have been processed yet.</p>
-      <% end %>
-    </div>
-  </div>
-</div>
+</body>
+</html>

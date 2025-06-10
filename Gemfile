@@ -16,6 +16,7 @@ gem "jbuilder"
 gem "tzinfo-data", platforms: %i[ mingw mswin x64_mingw jruby ]
 gem "bootsnap", require: false
 gem "tailwindcss-rails"
+gem "haml-rails", "~> 2.1"
 
 # Excel processing
 gem "roo", "~> 2.10.0"          # Para leer archivos Excel

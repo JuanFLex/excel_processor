@@ -1,0 +1,56 @@
+.min-h-screen.bg-white
+  .max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    / Clean Header
+    .mb-12
+      = link_to "← Back to Home", root_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 Commodity References
+      %p.text-sm.text-gray-600 Manage commodity classification and scope definitions
+
+    / Simplified Actions
+    .flex.gap-4.mb-12
+      = link_to "Upload Reference File", upload_commodity_references_path,
+        class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+
+    / References Section
+    .bg-white
+      %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-6
+        Commodity Classifications
+
+      - if @commodities.any?
+        .border.border-gray-200.rounded-lg.overflow-hidden
+          %table.min-w-full
+            %thead.bg-gray-50.border-b.border-gray-200
+              %tr
+                - ['Global Commodity', 'Level 1', 'Level 2', 'Level 3', 'Scope Status'].each_with_index do |header, i|
+                  %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider{class: ('text-center' if i == 4)}
+                    = header
+            %tbody.divide-y.divide-gray-100
+              - @commodities.each do |commodity|
+                %tr.hover:bg-gray-50.transition-colors
+                  %td.px-6.py-4
+                    .text-sm.font-medium.text-gray-900= commodity.global_comm_code_desc
+                  %td.px-6.py-4
+                    .text-sm.text-gray-600= commodity.level1_desc
+                  %td.px-6.py-4
+                    .text-sm.font-medium.text-gray-900= commodity.level2_desc
+                  %td.px-6.py-4
+                    .text-sm.text-gray-600= commodity.level3_desc
+                  %td.px-6.py-4.text-center
+                    %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded{class: commodity.infinex_scope_status == 'In Scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}
+                      = commodity.infinex_scope_status
+
+      - else
+        .text-center.py-12
+          %p.text-sm.text-gray-500.mb-1 No commodity references available yet
+          %p.text-xs.text-gray-400.mb-6 Upload a reference file to get started
+          = link_to "Upload Your First File", upload_commodity_references_path,
+            class: "inline-block px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+
+    / Pagination
+    - if @commodities.respond_to?(:current_page)
+      .mt-6
+        = paginate @commodities
+
+:css
+  body { -webkit-font-smoothing: antialiased; }
+  tbody tr:hover { background-color: rgba(249, 250, 251, 0.6); }
