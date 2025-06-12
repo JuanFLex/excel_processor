@@ -40,7 +40,7 @@ class CommodityReferenceLoader
   def generate_embeddings_for_all(references)
     # Procesar en lotes más grandes para reducir llamadas a la API
     references.each_slice(50) do |batch|
-      descriptions = batch.map { |record| record.level2_desc }
+      descriptions = batch.map { |record| record.level3_desc } # CAMBIO: level3_desc
       
       # Generar embeddings para este lote
       embeddings = OpenaiService.get_embeddings(descriptions)

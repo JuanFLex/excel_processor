@@ -1,5 +1,5 @@
 class CommodityReference < ApplicationRecord
-  validates :level2_desc, presence: true
+  validates :level3_desc, presence: true
   
   # Método para encontrar el commodity más similar a una descripción dada
   def self.find_most_similar(description_embedding, limit = 1)
@@ -26,4 +26,17 @@ class CommodityReference < ApplicationRecord
     
     records.first(limit)
   end
+
+  # NUEVO: Método para buscar por commodity exacto
+  def self.find_by_commodity_exact(commodity_name)
+    where("LOWER(level3_desc) = LOWER(?)", commodity_name.to_s.strip).first
+  end
+
+  # NUEVO: Método para buscar scope por commodity
+  def self.scope_for_commodity(commodity_name)
+    record = find_by_commodity_exact(commodity_name)
+    return 'Out of scope' unless record
+    
+    record.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+  end  
 end

@@ -1,13 +1,12 @@
 class ExcelProcessorService
   TARGET_COLUMNS = [
-    'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
-    'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-    'LAST_PO', 'EAU'
+    'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU'
   ]
   
   def initialize(processed_file)
     @processed_file = processed_file
     @commodities_cache = {} # Cache para evitar consultas repetidas
+    @scope_cache = {} # NUEVO: Cache para scopes de commodities existentes
   end
   
   def process_upload(file)
@@ -35,8 +34,15 @@ class ExcelProcessorService
       
       Rails.logger.info "🔍 [DEMO] OpenAI is analyzing #{sample_rows.size} sample rows..."
       
-      # Usar OpenAI para identificar las columnas
+      # Usar OpenAI para identificar las columnas estandar
       column_mapping = OpenaiService.identify_columns(sample_rows, TARGET_COLUMNS)
+
+      #NUEVO: Detectar especificamente si hay una columna level3_desc
+      level3_column = Level3DetectorService.detect_level3_column(sample_rows)
+
+      if level3_column
+        column_mapping['LEVEL3_DESC'] = level3_column
+      end
       
       Rails.logger.info "✅ [DEMO] Columns successfully identified by AI!"
       column_mapping.each do |target, source|
@@ -47,10 +53,19 @@ class ExcelProcessorService
         end
       end
       
+      # NUEVO: Detectar si el archivo tiene exactamente level3_desc
+      has_level3_desc = column_mapping['LEVEL3_DESC'].present?
+      
+      if has_level3_desc
+        Rails.logger.info "💡 [DEMO] Detected exact LEVEL3_DESC column! Will use existing commodities and only classify scope, saving tokens"
+      else
+        Rails.logger.info "🔍 [DEMO] No LEVEL3_DESC column found. Will use AI for full classification based on description"
+      end
+      
       # Guardar el mapeo de columnas
       @processed_file.update(column_mapping: column_mapping)
       
-      Rails.logger.info "💾 [DEMO] Preparing to process #{total_rows} rows with AI..."
+      Rails.logger.info "💾 [DEMO] Preparing to process #{total_rows} rows with #{has_level3_desc ? 'level3-direct' : 'full'} AI analysis..."
       
       # Preparar el procesamiento por lotes
       batch_size = 100
@@ -69,86 +84,23 @@ class ExcelProcessorService
           batch_rows << row_data
         end
         
-        # Extraer todas las descripciones para calcular embeddings en lote
-        descriptions = batch_rows.map do |row|
-          description_column = column_mapping['DESCRIPTION']
-          description_column ? row[description_column].to_s.strip : ''
-        end
-        
-        # Filtrar descripciones vacías
-        valid_descriptions = descriptions.select(&:present?)
-        description_indices = descriptions.each_with_index.select { |desc, _| desc.present? }.map { |_, idx| idx }
-        valid_count = valid_descriptions.size
-        
-        Rails.logger.info "🧠 [DEMO] Generating AI embeddings for #{valid_count} product descriptions..."
-        
-        # Obtener embeddings en lote
-        description_embeddings = {}
-        if valid_descriptions.any?
-          Rails.logger.info "🚀 [DEMO] Sending #{valid_descriptions.size} descriptions to OpenAI for analysis..."
-          embeddings = OpenaiService.get_embeddings(valid_descriptions)
-          Rails.logger.info "⚡ [DEMO] Embeddings generated! Each description now has a #{embeddings.first&.size || 0}-dimensional 'fingerprint'"
-          
-          description_indices.each_with_index do |row_idx, embed_idx|
-            description = descriptions[row_idx]
-            description_embeddings[description] = embeddings[embed_idx] if embeddings[embed_idx]
-          end
-        end
-        
         # Procesar cada fila del lote
-        Rails.logger.info "🎯 [DEMO] Classifying products by comparing against catalog of #{CommodityReference.count} references..."
-        
         processed_items = []
-        classified_count = 0
-        cache_hits = 0
         
-        batch_rows.each_with_index do |row, index|
-          values = extract_values(row, column_mapping)
+        if has_level3_desc
+          # NUEVO: Procesamiento optimizado para archivos con level3_desc existente
+          Rails.logger.info "🎯 [DEMO] Using existing level3_desc commodities, only determining scope..."
           
-          # Determinar commodity y scope si hay descripción
-          if values['description'].present?
-            embedding = description_embeddings[values['description']]
-            
-            if embedding
-              # Encontrar commodity más similar (usando caché si ya se procesó)
-              values['embedding'] = embedding
-              
-              # Buscar en caché primero
-              if @commodities_cache.key?(values['description'])
-                similar_commodity = @commodities_cache[values['description']]
-                cache_hits += 1
-              else
-                similar_commodity = find_similar_commodity(embedding)
-                # Guardar en caché
-                @commodities_cache[values['description']] = similar_commodity if similar_commodity
-              end
-              
-              if similar_commodity
-                values['commodity'] = similar_commodity.level2_desc
-                values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
-                classified_count += 1
-                
-                # Log ocasional para mostrar clasificaciones exitosas
-                if index % 10 == 0  # Cada 10 items
-                  Rails.logger.info "   ✨ [DEMO] '#{values['description'][0..50]}...' → Classified as: #{values['commodity']}"
-                end
-              else
-                values['commodity'] = 'Unknown'
-                values['scope'] = 'Out of scope'
-              end
-            else
-              values['commodity'] = 'Unknown'
-              values['scope'] = 'Out of scope'
-            end
-          end
+          processed_items = process_batch_with_level3_desc(batch_rows, column_mapping)
+          classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
           
-          # Añadir a la lista para inserción en lote
-          processed_items << values
-        end
-        
-        Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products successfully classified"
-        if cache_hits > 0
-          Rails.logger.info "⚡ [DEMO] Cache efficiency: #{cache_hits} classifications reused from memory"
+          Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products processed with existing commodities"
+        else
+          # Procesamiento original con AI para commodity
+          processed_items = process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index)
+          classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
+          
+          Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products successfully classified by AI"
         end
         
         # Crear los items procesados en lote
@@ -180,6 +132,138 @@ class ExcelProcessorService
   end
   
   private
+  
+  # NUEVO: Procesar lote cuando el archivo tiene level3_desc exacto
+  def process_batch_with_level3_desc(batch_rows, column_mapping)
+    processed_items = []
+    cache_hits = 0
+    
+    batch_rows.each_with_index do |row, index|
+      values = extract_values(row, column_mapping)
+      
+      # Obtener el level3_desc existente del archivo
+      existing_level3_desc = nil
+      if column_mapping['LEVEL3_DESC']
+        existing_level3_desc = row[column_mapping['LEVEL3_DESC']].to_s.strip
+      end
+      
+      if existing_level3_desc.present?
+        values['commodity'] = existing_level3_desc
+        
+        # Buscar scope en caché primero
+        if @scope_cache.key?(existing_level3_desc)
+          values['scope'] = @scope_cache[existing_level3_desc]
+          cache_hits += 1
+        else
+          # Buscar scope en base de datos
+          scope = CommodityReference.scope_for_commodity(existing_level3_desc)
+          values['scope'] = scope
+          @scope_cache[existing_level3_desc] = scope
+        end
+        
+        # Log ocasional para mostrar procesamiento
+        if index % 20 == 0
+          Rails.logger.info "   ✨ [DEMO] '#{existing_level3_desc}' → Scope: #{values['scope']}"
+        end
+      else
+        values['commodity'] = 'Unknown'
+        values['scope'] = 'Out of scope'
+      end
+      
+      processed_items << values
+    end
+    
+    if cache_hits > 0
+      Rails.logger.info "⚡ [DEMO] Cache efficiency: #{cache_hits} scope lookups reused from memory"
+    end
+    
+    processed_items
+  end
+  
+  # NUEVO: Procesar lote con AI para commodity (método original mejorado)
+  def process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index)
+    # Extraer todas las descripciones para calcular embeddings en lote
+    descriptions = batch_rows.map do |row|
+      description_column = column_mapping['DESCRIPTION']
+      description_column ? row[description_column].to_s.strip : ''
+    end
+    
+    # Filtrar descripciones vacías
+    valid_descriptions = descriptions.select(&:present?)
+    description_indices = descriptions.each_with_index.select { |desc, _| desc.present? }.map { |_, idx| idx }
+    valid_count = valid_descriptions.size
+    
+    Rails.logger.info "🧠 [DEMO] Generating AI embeddings for #{valid_count} product descriptions..."
+    
+    # Obtener embeddings en lote
+    description_embeddings = {}
+    if valid_descriptions.any?
+      Rails.logger.info "🚀 [DEMO] Sending #{valid_descriptions.size} descriptions to OpenAI for analysis..."
+      embeddings = OpenaiService.get_embeddings(valid_descriptions)
+      Rails.logger.info "⚡ [DEMO] Embeddings generated! Each description now has a #{embeddings.first&.size || 0}-dimensional 'fingerprint'"
+      
+      description_indices.each_with_index do |row_idx, embed_idx|
+        description = descriptions[row_idx]
+        description_embeddings[description] = embeddings[embed_idx] if embeddings[embed_idx]
+      end
+    end
+    
+    # Procesar cada fila del lote
+    Rails.logger.info "🎯 [DEMO] Classifying products by comparing against catalog of #{CommodityReference.count} references (Level 3)..."
+    
+    processed_items = []
+    classified_count = 0
+    cache_hits = 0
+    
+    batch_rows.each_with_index do |row, index|
+      values = extract_values(row, column_mapping)
+      
+      # Determinar commodity y scope si hay descripción
+      if values['description'].present?
+        embedding = description_embeddings[values['description']]
+        
+        if embedding
+          # Encontrar commodity más similar (usando caché si ya se procesó)
+          values['embedding'] = embedding
+          
+          # Buscar en caché primero
+          if @commodities_cache.key?(values['description'])
+            similar_commodity = @commodities_cache[values['description']]
+            cache_hits += 1
+          else
+            similar_commodity = find_similar_commodity(embedding)
+            # Guardar en caché
+            @commodities_cache[values['description']] = similar_commodity if similar_commodity
+          end
+          
+          if similar_commodity
+            values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
+            values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+            classified_count += 1
+            
+            # Log ocasional para mostrar clasificaciones exitosas
+            if index % 10 == 0  # Cada 10 items
+              Rails.logger.info "   ✨ [DEMO] '#{values['description'][0..50]}...' → Classified as: #{values['commodity']}"
+            end
+          else
+            values['commodity'] = 'Unknown'
+            values['scope'] = 'Out of scope'
+          end
+        else
+          values['commodity'] = 'Unknown'
+          values['scope'] = 'Out of scope'
+        end
+      end
+      
+      processed_items << values
+    end
+    
+    if cache_hits > 0
+      Rails.logger.info "⚡ [DEMO] Cache efficiency: #{cache_hits} classifications reused from memory"
+    end
+    
+    processed_items
+  end
   
   def open_spreadsheet(file)
     case File.extname(file.original_filename)
