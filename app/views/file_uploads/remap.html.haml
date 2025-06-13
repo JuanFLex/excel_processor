@@ -1,0 +1,114 @@
+.min-h-screen.bg-white
+  .max-w-6xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    / Header
+    .mb-12
+      = link_to "← Back to File Details", file_upload_path(@processed_file), class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 Remap & Reprocess
+      %p.text-sm.text-gray-600
+        = @processed_file.original_filename
+        · Adjust column mappings and commodity classifications
+
+    = form_with url: reprocess_file_upload_path(@processed_file), method: :patch, local: true, scope: :remap, class: "space-y-8" do |form|
+      
+      / Column Mapping Section
+      .bg-white.border.border-gray-200.rounded-lg.p-6
+        %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-6
+          Column Mapping
+        %p.text-sm.text-gray-600.mb-6
+          Review and adjust how columns from your Excel file are mapped to our standard fields.
+
+        = form.fields_for :column_mapping do |cm|
+          .grid.grid-cols-1.md:grid-cols-2.gap-6
+            - @processed_file.column_mapping.each do |target_column, source_column|
+              .div
+                = cm.label target_column, target_column.humanize, class: "block text-sm font-medium text-gray-700 mb-2"
+                = cm.select target_column, options_for_select(@column_options, source_column), {}, class: "block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+
+      / Commodity Changes Section
+      .bg-white.border.border-gray-200.rounded-lg.p-6
+        %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-6
+          Commodity Classifications
+        %p.text-sm.text-gray-600.mb-6
+          Review and adjust commodity classifications for individual items. Changes will apply to all items with the same description.
+
+        - if @items_sample.any?
+          = form.fields_for :commodity_changes do |cc|
+            .space-y-4
+              - @current_commodities.each do |current_commodity|
+                .border.border-gray-200.rounded-lg.p-4.bg-gray-50
+                  %h3.text-sm.font-medium.text-gray-900.mb-3
+                    Current: #{current_commodity}
+                  
+                  .grid.grid-cols-1.md:grid-cols-2.gap-4
+                    .div
+                      = cc.label current_commodity, "Change to:", class: "block text-sm font-medium text-gray-700 mb-2"
+                      = cc.select current_commodity, options_for_select(@commodity_options), {}, class: "block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500", data: { commodity_select: true }
+                    
+                    .div
+                      %label.block.text-sm.font-medium.text-gray-700.mb-2
+                        Affects:
+                      %p.text-sm.text-gray-600
+                        = pluralize(@commodity_counts[current_commodity] || 0, 'item')
+                        with this commodity
+
+
+        - else
+          .text-center.py-8
+            %p.text-sm.text-gray-500 No items available for commodity remapping
+
+      / Preview Section
+      - if @items_sample.any?
+        .bg-white.border.border-gray-200.rounded-lg.overflow-hidden
+          .px-6.py-4.border-b.border-gray-200.bg-gray-50
+            %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider
+              Preview Sample Items
+
+          .overflow-x-auto
+            %table.min-w-full.divide-y.divide-gray-200
+              %thead.bg-gray-50
+                %tr
+                  %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider Item
+                  %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider Description
+                  %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider Current Commodity
+                  %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider Current Scope
+
+              %tbody.bg-white.divide-y.divide-gray-200
+                - @items_sample.each do |item|
+                  %tr.hover:bg-gray-50
+                    %td.px-6.py-4.whitespace-nowrap.text-sm.font-medium.text-gray-900
+                      = item.item
+                    %td.px-6.py-4.text-sm.text-gray-500
+                      = truncate(item.description, length: 50)
+                    %td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-900
+                      = item.commodity
+                    %td.px-6.py-4.whitespace-nowrap
+                      %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded{class: item.scope == 'In scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}
+                        = item.scope
+
+          .px-6.py-4.bg-gray-50.text-sm.text-gray-500
+            Preview showing #{@items_sample.size} of #{@processed_file.processed_items.count} total items
+
+      / Action Buttons
+      .flex.justify-between.pt-6.border-t.border-gray-200
+        = link_to "Cancel", file_upload_path(@processed_file), class: "px-6 py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors"
+        
+        = form.submit "Apply Changes & Reprocess", class: "px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer", data: { confirm: "This will reprocess the file with your changes. The current results will be replaced. Continue?", disable_with: "Processing..." }
+
+:javascript
+  // Simple enhancement for commodity selection
+  document.addEventListener('DOMContentLoaded', function() {
+    const commoditySelects = document.querySelectorAll('[data-commodity-select]');
+    
+    commoditySelects.forEach(select => {
+      select.addEventListener('change', function() {
+        if (this.value) {
+          this.style.backgroundColor = '#fef3c7'; // Light yellow to indicate change
+        } else {
+          this.style.backgroundColor = '';
+        }
+      });
+    });
+  });
+
+:css
+  body { -webkit-font-smoothing: antialiased; }

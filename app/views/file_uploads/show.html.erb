@@ -16,16 +16,20 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
             <!-- Header -->
             <div class="mb-12">
-                <a href="/file_uploads" class="text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block">← Back</a>
+                <%= link_to "← Back", file_uploads_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block" %>
                 <div class="flex justify-between items-start">
                     <div>
                         <h1 class="text-2xl font-medium text-gray-900"><%= @processed_file.original_filename %></h1>
                         <p class="text-sm text-gray-500 mt-1">ID <%= @processed_file.id %></p>
                     </div>
-                    <% if @processed_file.completed? && @processed_file.result_file_path.present? %>
-                        <%= link_to "Download Result", download_file_upload_path(@processed_file), 
-                            class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors" %>
-                    <% end %>
+                    <div class="flex gap-3">
+                        <% if @processed_file.completed? && @processed_file.result_file_path.present? %>
+                            <%= link_to "Download Result", download_file_upload_path(@processed_file),
+                                 class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors" %>
+                            <%= link_to "Remap & Reprocess", remap_file_upload_path(@processed_file),
+                                 class: "px-5 py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors" %>
+                        <% end %>
+                    </div>
                 </div>
             </div>
 
@@ -36,9 +40,9 @@
                     <p class="text-xs uppercase tracking-wider text-gray-500 mb-1">Status</p>
                     <p class="text-sm font-medium text-<%= status_color %>-600"><%= @processed_file.status.titleize %></p>
                 </div>
-                <% [['Uploaded', @processed_file.created_at], 
-                    ['Completed', @processed_file.processed_at], 
-                    ['Total Items', @processed_file.processed_items.count]].each do |label, value| %>
+                <% [['Uploaded', @processed_file.created_at],
+                     ['Completed', @processed_file.processed_at],
+                     ['Total Items', @processed_file.processed_items.count]].each do |label, value| %>
                     <div>
                         <p class="text-xs uppercase tracking-wider text-gray-500 mb-1"><%= label %></p>
                         <p class="text-sm font-medium text-gray-900">
@@ -150,5 +154,15 @@
             <% end %>
         </div>
     </div>
+
+    <!-- Auto-reload for processing files -->
+    <% if @processed_file.status == 'queued' || @processed_file.processing? %>
+        <script>
+            // Auto-refresh every 5 seconds for processing status
+            setTimeout(function() {
+                window.location.reload();
+            }, 5000);
+        </script>
+    <% end %>
 </body>
 </html>

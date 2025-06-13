@@ -6,6 +6,8 @@ Rails.application.routes.draw do
     member do
       get :download
       get :status
+      get :remap
+      patch :reprocess
     end
     
     collection do

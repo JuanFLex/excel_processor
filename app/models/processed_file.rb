@@ -1,4 +1,5 @@
 class ProcessedFile < ApplicationRecord
+  has_one_attached :original_file
   has_many :processed_items, dependent: :destroy
   
   validates :original_filename, presence: true

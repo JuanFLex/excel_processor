@@ -1,6 +1,8 @@
 class ExcelProcessorService
   TARGET_COLUMNS = [
-    'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU'
+    'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
+    'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
+    'LAST_PO', 'EAU'
   ]
   
   def initialize(processed_file)
@@ -9,7 +11,7 @@ class ExcelProcessorService
     @scope_cache = {} # NUEVO: Cache para scopes de commodities existentes
   end
   
-  def process_upload(file)
+  def process_upload(file, manual_remap = nil)
     begin
       # Actualizar estado
       @processed_file.update(status: 'processing')
@@ -34,14 +36,18 @@ class ExcelProcessorService
       
       Rails.logger.info "🔍 [DEMO] OpenAI is analyzing #{sample_rows.size} sample rows..."
       
-      # Usar OpenAI para identificar las columnas estandar
-      column_mapping = OpenaiService.identify_columns(sample_rows, TARGET_COLUMNS)
-
-      #NUEVO: Detectar especificamente si hay una columna level3_desc
-      level3_column = Level3DetectorService.detect_level3_column(sample_rows)
-
-      if level3_column
-        column_mapping['LEVEL3_DESC'] = level3_column
+      # Usar OpenAI para identificar las columnas estándar (solo si no es remapeo manual)
+      if manual_remap && manual_remap[:column_mapping].present?
+        Rails.logger.info "🔄 [DEMO] Using manual column mapping from remap..."
+        column_mapping = manual_remap[:column_mapping]
+      else
+        column_mapping = OpenaiService.identify_columns(sample_rows, TARGET_COLUMNS)
+        
+        # NUEVO: Detectar específicamente si hay una columna level3_desc
+        level3_column = Level3DetectorService.detect_level3_column(sample_rows)
+        if level3_column
+          column_mapping['LEVEL3_DESC'] = level3_column
+        end
       end
       
       Rails.logger.info "✅ [DEMO] Columns successfully identified by AI!"
@@ -57,9 +63,9 @@ class ExcelProcessorService
       has_level3_desc = column_mapping['LEVEL3_DESC'].present?
       
       if has_level3_desc
-        Rails.logger.info "💡 [DEMO] Detected exact LEVEL3_DESC column! Will use existing commodities and only classify scope, saving tokens"
+        Rails.logger.info "💡 [DEMO] Detected exact LEVEL3_DESC column! Will use existing commodities and only classify scope, saving tokens."
       else
-        Rails.logger.info "🔍 [DEMO] No LEVEL3_DESC column found. Will use AI for full classification based on description"
+        Rails.logger.info "🔍 [DEMO] No LEVEL3_DESC column found. Will use AI for full classification based on description."
       end
       
       # Guardar el mapeo de columnas
@@ -91,13 +97,13 @@ class ExcelProcessorService
           # NUEVO: Procesamiento optimizado para archivos con level3_desc existente
           Rails.logger.info "🎯 [DEMO] Using existing level3_desc commodities, only determining scope..."
           
-          processed_items = process_batch_with_level3_desc(batch_rows, column_mapping)
+          processed_items = process_batch_with_level3_desc(batch_rows, column_mapping, manual_remap)
           classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
           
-          Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products processed with existing commodities"
+          Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products processed with existing level3_desc commodities"
         else
           # Procesamiento original con AI para commodity
-          processed_items = process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index)
+          processed_items = process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index, manual_remap)
           classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
           
           Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products successfully classified by AI"
@@ -134,14 +140,14 @@ class ExcelProcessorService
   private
   
   # NUEVO: Procesar lote cuando el archivo tiene level3_desc exacto
-  def process_batch_with_level3_desc(batch_rows, column_mapping)
+  def process_batch_with_level3_desc(batch_rows, column_mapping, manual_remap = nil)
     processed_items = []
     cache_hits = 0
     
     batch_rows.each_with_index do |row, index|
       values = extract_values(row, column_mapping)
       
-      # Obtener el level3_desc existente del archivo
+      # Obtener level3_desc existente del archivo
       existing_level3_desc = nil
       if column_mapping['LEVEL3_DESC']
         existing_level3_desc = row[column_mapping['LEVEL3_DESC']].to_s.strip
@@ -155,10 +161,24 @@ class ExcelProcessorService
           values['scope'] = @scope_cache[existing_level3_desc]
           cache_hits += 1
         else
-          # Buscar scope en base de datos
+          # Buscar scope en base de datos usando level3_desc exacto
           scope = CommodityReference.scope_for_commodity(existing_level3_desc)
           values['scope'] = scope
           @scope_cache[existing_level3_desc] = scope
+        end
+        
+        # SIMPLE: Aplicar cambios de commodity si existen
+        if manual_remap && manual_remap[:commodity_changes]
+          original_commodity = values['commodity']
+          if manual_remap[:commodity_changes][original_commodity].present?
+            new_commodity = manual_remap[:commodity_changes][original_commodity]
+            values['commodity'] = new_commodity
+            values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+            
+            if index % 10 == 0
+              Rails.logger.info "   🔄 [REMAP] '#{original_commodity}' → '#{new_commodity}'"
+            end
+          end
         end
         
         # Log ocasional para mostrar procesamiento
@@ -181,7 +201,7 @@ class ExcelProcessorService
   end
   
   # NUEVO: Procesar lote con AI para commodity (método original mejorado)
-  def process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index)
+  def process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index, manual_remap = nil)
     # Extraer todas las descripciones para calcular embeddings en lote
     descriptions = batch_rows.map do |row|
       description_column = column_mapping['DESCRIPTION']
@@ -240,6 +260,20 @@ class ExcelProcessorService
             values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
             values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
             classified_count += 1
+            
+            # SIMPLE: Aplicar cambios de commodity si existen  
+            if manual_remap && manual_remap[:commodity_changes]
+              original_commodity = values['commodity']
+              if manual_remap[:commodity_changes][original_commodity].present?
+                new_commodity = manual_remap[:commodity_changes][original_commodity]
+                values['commodity'] = new_commodity
+                values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+                
+                if index % 10 == 0
+                  Rails.logger.info "   🔄 [REMAP] '#{original_commodity}' → '#{new_commodity}'"
+                end
+              end
+            end
             
             # Log ocasional para mostrar clasificaciones exitosas
             if index % 10 == 0  # Cada 10 items
