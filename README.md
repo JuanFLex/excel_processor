@@ -1,369 +1,261 @@
-# Excel Processor for Electronic Components
+# Excel Processor
 
-<div align="center">
+**AI-powered Excel file standardization for commodity classification**
 
-**An intelligent Excel processing application that standardizes non-uniform component data using artificial intelligence**
-
-[Features](#features) • [Demo](#demo) • [Installation](#installation) • [Usage](#usage) • [API Reference](#api-reference) • [Contributing](#contributing)
-
-</div>
+Transform unstructured Excel files into standardized formats with automatic column mapping and AI-driven commodity classification.
 
 ---
 
-## 🚀 Overview
+## What it does
 
-Excel Processor is a sophisticated Rails application designed to automatically standardize and enrich electronic component data from diverse Excel formats. Leveraging OpenAI's cutting-edge AI technology, it intelligently maps columns, classifies products using embeddings, and generates standardized output files with minimal human intervention.
+**Input**: Non-standardized Excel files with varying column names and formats  
+**Output**: Standardized Excel files with consistent schema and AI-classified commodities
 
-### Key Capabilities
+### Core features
 
-- **🧠 Intelligent Column Recognition**: Automatically identifies column mappings using AI
-- **📊 Smart Data Classification**: Classifies components using semantic embeddings
-- **⚡ Asynchronous Processing**: Handles large files without blocking the interface
-- **🎯 Scope Determination**: Automatically determines if items are "In Scope" or "Out of Scope"
-- **📈 Real-time Updates**: Live status tracking with automatic UI updates
-- **🔄 Iterative Learning**: Improves classification accuracy over time
+- **Automatic column detection** - Uses OpenAI to map your columns to standard fields
+- **Smart commodity classification** - AI embeddings classify products into categories  
+- **Level3 optimization** - If your file already has LEVEL3_DESC, only determines scope (saves tokens)
+- **Remapping capability** - Adjust column mappings and commodity classifications
+- **Asynchronous processing** - Upload and get notified when complete
+- **Real-time status** - Watch processing progress
 
----
+### Supported formats
 
-## 🌟 Features
-
-### Core Functionality
-
-| Feature | Description |
-|---------|-------------|
-| **Multi-format Support** | Process `.xlsx`, `.xls`, and `.csv` files |
-| **AI Column Mapping** | Automatically maps source columns to standardized schema |
-| **Semantic Classification** | Uses OpenAI embeddings for intelligent product categorization |
-| **Batch Processing** | Efficiently handles files with thousands of rows |
-| **Error Recovery** | Robust error handling with detailed logging |
-| **Export Generation** | Creates standardized Excel files with consistent formatting |
-
-### Advanced Features
-
-- **Commodity Reference Management**: Maintain and update classification databases
-- **Custom Mapping Corrections**: Manual override capabilities for edge cases
-- **Historical Processing**: Track and review all processed files
-- **Sample File Generation**: Built-in examples and templates
+- `.xlsx` (Excel 2007+)
+- `.xls` (Excel 97-2003) 
+- `.csv` (Comma-separated values)
 
 ---
 
-## 🎬 Demo
+## Quick start
 
-### Processing Workflow
+### Prerequisites
 
-```mermaid
-graph TD
-    A[Upload Excel File] --> B[AI Column Analysis]
-    B --> C[Generate Embeddings]
-    C --> D[Classification Matching]
-    D --> E[Data Processing]
-    E --> F[Export Generation]
-    F --> G[Download Standardized File]
-```
+- Ruby 3.2+
+- PostgreSQL
+- OpenAI API key
 
-### Input vs Output
-
-**Input (Non-standardized):**
-```
-Part ID | SKU Number | Item Description | Unit Cost ($)
-SG123456 | CAP-001 | Capacitor 100µF 25V | $0.45
-```
-
-**Output (Standardized):**
-```
-SUGAR_ID | ITEM | DESCRIPTION | STD_COST | Commodity | Scope
-SG123456 | CAP-001 | Capacitor 100µF 25V | 0.45 | Capacitors | In scope
-```
-
----
-
-## 📋 Requirements
-
-### System Requirements
-
-- **Ruby**: `>= 3.2.2`
-- **Rails**: `>= 7.1.0`
-- **Database**: PostgreSQL `>= 12`
-- **Node.js**: `>= 16.0` (for asset compilation)
-- **Memory**: Minimum 2GB RAM recommended
-
-### API Dependencies
-
-- **OpenAI API**: Valid API key required
-- **Models Used**:
-  - `text-embedding-3-small` (for embeddings)
-  - `gpt-4-turbo` (for column identification)
-
----
-
-## 🛠 Installation
-
-### Quick Start
+### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/JuanFLex/excel-processor.git
+# Clone and setup
+git clone 
 cd excel-processor
-
-# Install dependencies
 bundle install
-yarn install
 
-# Database setup
-rails db:create
-rails db:migrate
-rails db:seed
+# Database
+rails db:create db:migrate
 
-# Configure OpenAI credentials
-EDITOR=nano rails credentials:edit
+# OpenAI credentials
+rails credentials:edit
+# Add: openai: { api_key: your_key_here }
+
+# Start server
+rails server
 ```
 
-### Environment Configuration
+### Basic usage
 
-Add to your Rails credentials:
+1. **Upload commodity references** (one-time setup)
+   - Go to `/commodity_references/upload`
+   - Upload CSV with: `GLOBAL_COMM_CODE_DESC,LEVEL1_DESC,LEVEL2_DESC,LEVEL3_DESC,Infinex Scope Status`
+
+2. **Process your Excel file**
+   - Go to root URL
+   - Upload your Excel/CSV file
+   - Wait for processing (runs in background)
+
+3. **Download standardized file**
+   - File includes all original data mapped to standard columns
+   - Plus AI-generated `Commodity` and `Scope` columns
+
+---
+
+## How it works
+
+### Standard output schema
+
+Every processed file gets these columns:
+
+| Column | Description | Type |
+|--------|-------------|------|
+| `SUGAR_ID` | Item identifier | String |
+| `ITEM` | Item code | String |
+| `MFG_PARTNO` | Manufacturer part number | String |
+| `GLOBAL_MFG_NAME` | Manufacturer name | String |
+| `DESCRIPTION` | Item description | Text |
+| `SITE` | Location/facility | String |
+| `STD_COST` | Standard cost | Number |
+| `LAST_PURCHASE_PRICE` | Last purchase price | Number |
+| `LAST_PO` | Last PO price | Number |
+| `EAU` | Estimated Annual Usage | Integer |
+| `Commodity` | **AI-generated classification** | String |
+| `Scope` | **In scope / Out of scope** | String |
+
+### Processing logic
+
+1. **Column identification**: OpenAI analyzes your headers and maps them
+2. **Commodity classification**: 
+   - If file has `LEVEL3_DESC` → use existing commodities, determine scope only
+   - If no `LEVEL3_DESC` → generate embeddings and find similar commodities
+3. **Scope determination**: Match against reference database
+4. **Excel generation**: Create standardized output file
+
+### AI optimization
+
+- **Token savings**: Files with existing LEVEL3_DESC skip embedding generation
+- **Batch processing**: Reduces API calls by processing items in groups
+- **Embedding cache**: Avoids regenerating embeddings for similar descriptions
+- **Smart fallbacks**: Handles unknown commodities gracefully
+
+---
+
+## Remapping
+
+Fix incorrect mappings without re-uploading:
+
+1. **Access remap page** from processed file details
+2. **Adjust column mappings** - Choose from all available source columns
+3. **Change commodities** - Bulk update commodity classifications
+4. **Reprocess** - Apply changes and get updated file
+
+---
+
+## Configuration
+
+### OpenAI setup
 
 ```yaml
+# config/credentials.yml.enc
 openai:
-  api_key: your_openai_api_key_here 
-  organization_id: your_org_id_here  # optional
+  api_key: your_openai_api_key
 ```
 
-### Asset Compilation
+### Models used
 
-```bash
-# For development
-bin/dev
+- `text-embedding-3-small` - For commodity similarity matching
+- `gpt-4-turbo` - For column identification
 
-# For production
-rails assets:precompile
-rails tailwindcss:build
-```
-
----
-
-## 📚 Usage
-
-### Basic Workflow
-
-1. **Access the Application**
-   ```
-   http://localhost:3000
-   ```
-
-2. **Upload a File**
-   - Navigate to "Upload New File"
-   - Select your Excel/CSV file
-   - Click "Process File"
-
-3. **Monitor Processing**
-   - Real-time status updates
-   - Automatic page refresh on completion
-
-4. **Download Results**
-   - Review processed items
-   - Download standardized Excel file
-
-### Supported Output Schema
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `SUGAR_ID` | String | Item identifier (optional) |
-| `ITEM` | String | Item code |
-| `MFG_PARTNO` | String | Manufacturer part number |
-| `GLOBAL_MFG_NAME` | String | Manufacturer name |
-| `DESCRIPTION` | Text | Item description |
-| `SITE` | String | Location/facility |
-| `STD_COST` | Float | Standard cost |
-| `LAST_PURCHASE_PRICE` | Float | Last purchase price |
-| `LAST_PO` | Float | Last purchase order amount |
-| `EAU` | Integer | Estimated Annual Usage |
-| `Commodity` | String | AI-generated classification |
-| `Scope` | String | In scope / Out of scope |
-
----
-
-## 🔧 Configuration
-
-### Commodity Reference Management
-
-The application uses a hierarchical commodity classification system:
-
-```csv
-GLOBAL_COMM_CODE_DESC,LEVEL1_DESC,LEVEL2_DESC,LEVEL3_DESC,Infinex Scope Status
-Electronic Components,Passive Components,Capacitors,Ceramic Capacitors,In Scope
-Electronic Components,Passive Components,Resistors,Chip Resistors,In Scope
-```
-
-### Performance Tuning
+### Performance tuning
 
 ```ruby
 # config/environments/production.rb
 config.active_job.queue_adapter = :async
-config.active_job.queue_adapter.max_threads = ENV.fetch("MAX_THREADS", 5).to_i
 ```
 
 ---
 
-## 🧪 Testing
+## Testing
 
-### Running Tests
+Simple integration tests that verify end-to-end functionality:
 
 ```bash
-# Run all tests
-bundle exec rspec
+# Run tests
+rails test
 
-# Run specific test files
-bundle exec rspec spec/models/
-bundle exec rspec spec/services/
-
-# Generate coverage report
-COVERAGE=true bundle exec rspec
+# Specific test files
+rails test test/integration/file_upload_integration_test.rb
+rails test test/integration/file_remap_integration_test.rb
 ```
 
-### Test Coverage
-
-- **Models**: Unit tests for all ActiveRecord models
-- **Services**: Integration tests for AI services
-- **Controllers**: Request/response testing
-- **Jobs**: Asynchronous processing validation
+Tests simulate OpenAI responses to avoid API costs and ensure reliability.
 
 ---
 
-## 🚀 Deployment
+## Architecture decisions
 
-### Production Setup
+### Technical decisions made
 
-```bash
-# Precompile assets
-RAILS_ENV=production rails assets:precompile
+- **NO Redis** - Keep infrastructure simple, avoid external dependencies
+- **NO Sidekiq** - Use Active Job with async adapter (Rails native)
+- **NO Hotwire** - Maintain simplicity with traditional request/response
+- **NO bundle exec** - Use bundle directly, ignore psych warnings
+- **YES Active Storage** - Store original files for remapping capability
+- **YES PostgreSQL** - JSONB support for embeddings and column mappings
+- **YES Tailwind CSS** - Manual setup, no cssbundling-rails complexity
+- **YES Kaminari** - Simple pagination without extra configuration
 
-# Run database migrations
-RAILS_ENV=production rails db:migrate
+### Why these choices
 
-# Start the application
-RAILS_ENV=production rails server
+- **Rails 7.1**: Mature, productive framework
+- **PostgreSQL**: JSONB support for embeddings and metadata
+- **Active Storage**: Built-in file handling
+- **Active Job**: Async processing without external dependencies
+- **Tailwind CSS**: Utility-first styling
+- **No Redis/Sidekiq**: Keep infrastructure simple
+- **No Hotwire**: Maintain simplicity with traditional requests
+
+### OpenAI optimization decisions
+
+- **Batch processing** - Process items in groups to reduce API calls
+- **Embedding cache** - In-memory cache to avoid duplicate API requests
+- **Character limits** - Truncate long descriptions to save tokens
+- **LEVEL3_DESC detection** - Skip AI classification when exact commodity exists
+- **Scope-only processing** - When commodities exist, only determine scope
+
+### File processing flow
+
+```
+Upload → Active Storage → Background Job → OpenAI API → Database → Excel Generation
 ```
 
+### Data storage
 
-### Environment Variables
-
-```bash
-RAILS_ENV=production
-RAILS_MASTER_KEY=your_master_key_here
-MAX_THREADS=5
-```
+- **ProcessedFile**: Metadata, status, column mappings
+- **ProcessedItem**: Individual row data with AI classifications  
+- **CommodityReference**: Classification reference database
 
 ---
 
-## 📊 Performance & Scalability
+## Known limitations
 
-### Benchmarks
-
-| File Size | Rows | Processing Time | Memory Usage |
-|----------|------|----------------|--------------|
-| Small | 100-500 | 30-60 seconds | ~200MB |
-| Medium | 500-2000 | 2-5 minutes | ~400MB |
-| Large | 2000-5000 | 5-15 minutes | ~800MB |
-
-### Optimization Features
-
-- **Batch Processing**: Processes items in configurable batches
-- **Embedding Caching**: Reduces redundant API calls
-- **Asynchronous Execution**: Non-blocking file processing
-- **Memory Management**: Efficient handling of large datasets
+- **Large files**: Processing time scales with file size and AI API latency
+- **OpenAI dependency**: Requires internet connection and valid API key
+- **Column variety**: Works best with recognizable English column names
+- **Single tenant**: No multi-user/organization support
 
 ---
 
-## 🤝 Contributing
+## Troubleshooting
 
-### Development Setup
+### Common issues
 
-```bash
-# Fork and clone the repository
-git clone https://github.com/your-username/excel-processor.git
+**Processing fails immediately**
+- Check OpenAI API key in credentials
+- Verify file format is supported
 
-# Create a feature branch
-git checkout -b feature/your-feature-name
+**Commodity references missing**
+- Upload reference CSV file first
+- Ensure CSV has required columns
 
-# Make your changes and test
-bundle exec rspec
+**Column mapping incorrect**
+- Use remap functionality to adjust
+- Ensure source columns have clear names
 
-# Submit a pull request
-```
+**Memory issues with large files**
+- Increase server memory
+- Process files in smaller batches
 
-### Code Standards
+### Getting help
 
-- Follow Ruby Style Guide
-- Maintain test coverage above 90%
-- Document new features
-- Use semantic commit messages
-
-### Issue Reporting
-
-When reporting issues, please include:
-- Ruby/Rails version
-- Error logs
-- Sample data (anonymized)
-- Steps to reproduce
+- Check logs: `tail -f log/development.log`
+- Rails console: `rails console` → `ProcessedFile.last.status`
+- Reset database: `rails db:reset`
 
 ---
 
-## 📖 API Reference
+## Contributing
 
-### Key Services
+This is a focused application for a specific use case. If you want to contribute:
 
-#### `OpenaiService`
-```ruby
-# Generate embeddings
-OpenaiService.get_embeddings(["text1", "text2"])
-
-# Identify columns
-OpenaiService.identify_columns(sample_rows, target_columns)
-```
-
-#### `ExcelProcessorService`
-```ruby
-# Process uploaded file
-processor = ExcelProcessorService.new(processed_file)
-processor.process_upload(uploaded_file)
-```
+1. Keep it simple - no over-engineering
+2. Test your changes
+3. Update documentation
+4. Follow existing patterns
 
 ---
 
-## 🛡 Security
+## License
 
-### Data Protection
-- API keys stored in encrypted Rails credentials
-- No sensitive data logged
-- Temporary files automatically cleaned up
-- SQL injection protection via ActiveRecord
-
-### Best Practices
-- Regular dependency updates
-- Input validation and sanitization
-- Secure file upload handling
-- Rate limiting for API calls
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-| Issue | Cause | Solution |
-|-------|--------|----------|
-| Processing fails | Invalid OpenAI API key | Check credentials configuration |
-| Column mapping errors | Unclear column headers | Use manual mapping correction |
-| Memory issues | Large file processing | Increase server memory or batch size |
-| Asset loading problems | Missing Tailwind compilation | Run `rails tailwindcss:build` |
-
-### Debug Mode
-
-```bash
-# Enable detailed logging
-RAILS_LOG_LEVEL=debug rails server
-
-# Check processing status
-rails console
-> ProcessedFile.last.status
-```
+MIT License - Use freely for commercial and personal projects.
