@@ -8,8 +8,10 @@ class CommodityReferencesController < ApplicationController
   end
   
   def process_upload
-    if params[:file].present?
-      result = CommodityReferenceLoader.load_from_csv(params[:file].path)
+    # CORREGIDO: Usar la estructura correcta de parámetros
+    if params[:commodity_upload]&.[](:file).present?
+      file = params[:commodity_upload][:file]
+      result = CommodityReferenceLoader.load_from_csv(file.path)
       
       if result[:success]
         redirect_to commodity_references_path, notice: "Se cargaron #{result[:count]} referencias de commodities."
