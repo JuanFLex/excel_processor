@@ -16,6 +16,8 @@ class CommodityReferenceLoader
       CommodityReference.delete_all
       
       csv_data.each do |row|
+        next if CommodityReferenceFilter.should_skip?(row)
+
         reference = CommodityReference.create!(
           global_comm_code_desc: row['GLOBAL_COMM_CODE_DESC'],
           level1_desc: row['LEVEL1_DESC'],
