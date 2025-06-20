@@ -1,0 +1,42 @@
+.min-h-screen.bg-white
+  .max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    
+    -# Header
+    .mb-12
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 Excel Processor
+      %p.text-sm.text-gray-600 Sign in to access your file processing dashboard
+
+    -# Login Form Section
+    .bg-white
+      %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-6
+        User Authentication
+
+      .border.border-gray-200.rounded-lg.overflow-hidden.max-w-md.mx-auto
+        .bg-gray-50.px-6.py-4.border-b.border-gray-200
+          %h3.text-sm.font-medium.text-gray-700 Sign In to Your Account
+
+        .px-6.py-8
+          = form_for(resource, as: resource_name, url: session_path(resource_name), html: { class: "space-y-6" }) do |f|
+            -# Email
+            %div
+              = f.label :email, class: "block text-sm font-medium text-gray-700"
+              = f.email_field :email, autofocus: true, autocomplete: "email", class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+            
+            -# Password
+            %div
+              = f.label :password, class: "block text-sm font-medium text-gray-700"
+              = f.password_field :password, autocomplete: "current-password", class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 sm:text-sm"
+            
+            -# Remember Me
+            - if devise_mapping.rememberable?
+              .flex.items-center.gap-2
+                = f.check_box :remember_me, class: "rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                = f.label :remember_me, class: "text-sm text-gray-700"
+            
+            -# Submit Button
+            %div
+              = f.submit "Sign In", class: "w-full px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+
+:css
+  body { -webkit-font-smoothing: antialiased; }
+  .border:hover { border-color: rgba(107, 114, 128, 0.3); }

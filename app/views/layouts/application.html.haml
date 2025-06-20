@@ -1,0 +1,65 @@
+!!!
+%html
+  %head
+    %title Excel Processor
+    %meta{name: "viewport", content: "width=device-width,initial-scale=1"}
+    = csrf_meta_tags
+    = csp_meta_tag
+    
+    = stylesheet_link_tag "application", "data-turbo-track": "reload"
+    = stylesheet_link_tag "tailwind", "data-turbo-track": "reload"
+    = stylesheet_link_tag "application.tailwind", "data-turbo-track": "reload"
+    = javascript_importmap_tags
+
+  %body.bg-gray-100.min-h-screen
+    %header{style: "background-color: #5d6268; color: white;"}
+      .container.mx-auto.px-4.py-0
+        .flex.justify-between.items-center
+          %h1.text-xl.font-bold
+            = link_to image_tag("logo.png", alt: "Logo", class: "h-12 inline"), root_path
+          
+          %nav
+            %ul.flex.space-x-4.items-center
+              %li= link_to "Home", root_path, class: "hover:underline"
+              %li= link_to "Upload file", new_file_upload_path, class: "hover:underline"
+              
+              -# References link (only for admin users)
+              - if user_signed_in? && current_user.admin?
+                %li= link_to "References", commodity_references_path, class: "hover:underline"
+              
+              -# Authentication section
+              - if user_signed_in?
+                -# Welcome message
+                %li
+                  %span.text-sm.text-gray-200
+                    Welcome, #{current_user.email.split('@').first}!
+                
+                -# Admin link (only for admin users)
+                - if current_user.admin?
+                  %li= link_to "Admin Panel", admin_users_path, class: "hover:underline text-yellow-300"
+                
+                -# Logout link
+                = button_to "Sign Out", destroy_user_session_path, method: :delete, class: "hover:underline text-red-300"
+
+              
+              - else
+                -# Login link
+                %li= link_to "Sign In", new_user_session_path, class: "hover:underline text-green-300"
+
+    %main
+      - if notice
+        .container.mx-auto.px-4.mt-4
+          .flash-notice.bg-orange-600.text-white.p-2.rounded
+            = notice
+      
+      - if alert
+        .container.mx-auto.px-4.mt-4
+          .flash-alert.bg-red-500.text-white.p-2.rounded
+            = alert
+      
+      = yield
+
+    %footer{style: "background-color: #101920; color: white; margin-top: 2rem;"}
+      .container.mx-auto.px-4.py-6
+        %p.text-center.text-gray-400.text-sm
+          Excel Processor &copy; #{Date.current.year}

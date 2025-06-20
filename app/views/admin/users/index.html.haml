@@ -1,0 +1,36 @@
+.min-h-screen.bg-white
+  .max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    
+    -# Header
+    .mb-12
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 Users
+      %p.text-sm.text-gray-600 Manage platform users
+    
+    -# Actions
+    .flex.gap-4.mb-12
+      = link_to "New User", new_admin_user_path, class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+    
+    -# Users Table
+    - if @users.any?
+      .border.border-gray-200.rounded-lg.overflow-hidden
+        %table.min-w-full
+          %thead.bg-gray-50.border-b.border-gray-200
+            %tr
+              %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Email
+              %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Admin
+              %th.px-6.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Actions
+          %tbody.divide-y.divide-gray-100
+            - @users.each do |user|
+              %tr.hover:bg-gray-50.transition-colors
+                %td.px-6.py-4.text-sm.font-medium.text-gray-900
+                  = user.email
+                %td.px-6.py-4.text-sm.text-gray-700
+                  = user.admin? ? "Yes" : "No"
+                %td.px-6.py-4.text-right.space-x-3
+                  = link_to "Edit", edit_admin_user_path(user), class: "text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  = link_to "Delete", admin_user_path(user), method: :delete, data: { confirm: "Are you sure?" }, class: "text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+    - else
+      .text-center.py-12
+        %p.text-sm.text-gray-500.mb-1 No users registered
+        %p.text-xs.text-gray-400.mb-6 Add your first user to get started
+        = link_to "Add User", new_admin_user_path, class: "inline-block px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"

@@ -1,0 +1,11 @@
+.min-h-screen.bg-white
+  .max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+
+    -# Header
+    .mb-12
+      %h1.text-2xl.font-medium.text-gray-900.mb-2 New User
+      %p.text-sm.text-gray-600 Create a new admin or standard user
+
+    -# Form
+    .bg-white.border.border-gray-200.rounded-lg.px-6.py-8.shadow-sm.max-w-2xl
+      = render "form"
