@@ -13,7 +13,7 @@ class Admin::UsersController < ApplicationController
   def create
     @user = User.new(user_params)
     if @user.save
-      redirect_to admin_users_path, notice: "Usuario creado con éxito"
+      redirect_to admin_users_path, notice: "User created successfully"
     else
       render :new
     end
@@ -26,7 +26,7 @@ class Admin::UsersController < ApplicationController
   def update
     @user = User.find(params[:id])
     if @user.update(user_params)
-      redirect_to admin_users_path, notice: "Usuario actualizado"
+      redirect_to admin_users_path, notice: "User updated successfully"
     else
       render :edit
     end
@@ -35,13 +35,13 @@ class Admin::UsersController < ApplicationController
   def destroy
     @user = User.find(params[:id])
     @user.destroy
-    redirect_to admin_users_path, notice: "Usuario eliminado"
+    redirect_to admin_users_path, notice: "User deleted successfully"
   end
 
   private
 
   def ensure_admin!
-    redirect_to root_path, alert: "Acceso no autorizado" unless current_user.admin?
+    redirect_to root_path, alert: "Unauthorized access" unless current_user.admin?
   end
 
   def user_params

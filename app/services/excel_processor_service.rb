@@ -308,7 +308,7 @@ class ExcelProcessorService
     when '.xlsx'
       Roo::Excelx.new(file.path)
     else
-      raise "Formato de archivo no soportado: #{file.original_filename}"
+      raise "Unsupported file format: #{file.original_filename}"
     end
   end
   
@@ -398,7 +398,7 @@ class ExcelProcessorService
     workbook = package.workbook
     
     # Añadir una hoja
-    workbook.add_worksheet(name: "Items Procesados") do |sheet|
+    workbook.add_worksheet(name: "Processed Items") do |sheet|
       # Encabezados
       headers = [
         'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 

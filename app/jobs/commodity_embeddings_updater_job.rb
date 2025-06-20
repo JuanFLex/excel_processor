@@ -6,7 +6,7 @@ class CommodityEmbeddingsUpdaterJob < ApplicationJob
     references_without_embeddings = CommodityReference.where('embedding IS NULL OR embedding = ?', '{}')
     
     if references_without_embeddings.exists?
-      Rails.logger.info "Actualizando embeddings para #{references_without_embeddings.count} referencias sin embeddings..."
+      Rails.logger.info "Updating embeddings for #{references_without_embeddings.count} references without embeddings..."
       
       # Procesar en lotes
       references_without_embeddings.find_in_batches(batch_size: 50) do |batch|
@@ -23,9 +23,9 @@ class CommodityEmbeddingsUpdaterJob < ApplicationJob
         end
       end
       
-      Rails.logger.info "Embeddings actualizados correctamente."
+      Rails.logger.info "Embeddings updated successfully."
     else
-      Rails.logger.info "No hay referencias sin embeddings para actualizar."
+      Rails.logger.info "No references without embeddings to update."
     end
   end
 end

@@ -28,7 +28,7 @@ class FileUploadsController < ApplicationController
       # Encolar el trabajo con Active Job
       ExcelProcessorJob.perform_later(@processed_file, temp_path.to_s)
       
-      redirect_to file_upload_path(@processed_file), notice: 'Archivo subido correctamente. El procesamiento comenzará en breve.'
+      redirect_to file_upload_path(@processed_file), notice: 'File uploaded successfully. Processing will begin shortly.'
     else
       render :new, status: :unprocessable_entity
     end
@@ -45,7 +45,7 @@ class FileUploadsController < ApplicationController
     if @processed_file.completed? && @processed_file.result_file_path.present?
       send_excel_file(@processed_file.result_file_path, "processed_#{@processed_file.original_filename}")
     else
-      redirect_to file_upload_path(@processed_file), alert: 'El archivo aún no está disponible para descarga.'
+      redirect_to file_upload_path(@processed_file), alert: 'The file is not yet available for download.'
     end
   end
   
@@ -60,7 +60,7 @@ class FileUploadsController < ApplicationController
     if File.exist?(sample_file_path)
       send_excel_file(sample_file_path, "sample_inventory.xlsx")
     else
-      redirect_to new_file_upload_path, alert: 'El archivo de ejemplo no está disponible.'
+      redirect_to new_file_upload_path, alert: 'The sample file is not available.'
     end
   end
   
@@ -70,13 +70,13 @@ class FileUploadsController < ApplicationController
     
     # Solo permitir remapeo de archivos completados
     unless @processed_file.completed?
-      redirect_to file_upload_path(@processed_file), alert: 'Solo se pueden remapear archivos procesados completamente.'
+      redirect_to file_upload_path(@processed_file), alert: 'Only fully processed files can be remapped.'
       return
     end
     
     # Verificar que el archivo original esté disponible
     unless @processed_file.original_file.attached?
-      redirect_to file_upload_path(@processed_file), alert: 'Archivo original no disponible para remapeo.'
+      redirect_to file_upload_path(@processed_file), alert: 'Original file not available for remapping.'
       return
     end
     
@@ -113,7 +113,7 @@ class FileUploadsController < ApplicationController
     
     # Validaciones básicas
     unless @processed_file.completed? && @processed_file.original_file.attached?
-      redirect_to file_upload_path(@processed_file), alert: 'No se puede reprocesar este archivo.'
+      redirect_to file_upload_path(@processed_file), alert: 'This file cannot be reprocessed.'
       return
     end
     
@@ -123,7 +123,7 @@ class FileUploadsController < ApplicationController
     # Encolar trabajo de reprocesamiento con parámetros
     ExcelProcessorJob.perform_later(@processed_file, nil, remap_params)
     
-    redirect_to file_upload_path(@processed_file), notice: 'Reprocesamiento iniciado. Los cambios se aplicarán en breve.'
+    redirect_to file_upload_path(@processed_file), notice: 'Reprocessing started. Changes will be applied shortly.'
   end
   
   private
@@ -159,7 +159,7 @@ class FileUploadsController < ApplicationController
     when '.xlsx'
       Roo::Excelx.new(temp_file.path)
     else
-      raise "Formato de archivo no soportado: #{@processed_file.original_filename}"
+      raise "Unsupported file format: #{@processed_file.original_filename}"
     end
   end
 end

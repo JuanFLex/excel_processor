@@ -14,12 +14,13 @@ class CommodityReferencesController < ApplicationController
       result = CommodityReferenceLoader.load_from_csv(file.path)
       
       if result[:success]
-        redirect_to commodity_references_path, notice: "Se cargaron #{result[:count]} referencias de commodities."
+        redirect_to commodity_references_path, notice: "#{result[:count]} commodity references loaded successfully."
       else
-        redirect_to upload_commodity_references_path, alert: "Error al cargar el archivo: #{result[:error]}"
+        redirect_to upload_commodity_references_path, alert: "Error loading file: #{result[:error]}"
+
       end
     else
-      redirect_to upload_commodity_references_path, alert: 'Debe seleccionar un archivo.'
+      redirect_to upload_commodity_references_path, alert: 'Please select a file.'
     end
   end
 end
