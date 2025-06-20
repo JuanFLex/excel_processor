@@ -17,6 +17,7 @@ gem "tzinfo-data", platforms: %i[ mingw mswin x64_mingw jruby ]
 gem "bootsnap", require: false
 gem "tailwindcss-rails"
 gem "haml-rails", "~> 2.1"
+gem "devise", "~> 4.9"          # Autenticación de usuarios
 
 # Excel processing
 gem "roo", "~> 2.10.0"          # Para leer archivos Excel
@@ -29,8 +30,6 @@ gem "ruby-openai", "~> 6.0"      # Cliente Ruby para OpenAI
 # Vector embeddings and similarity
 gem "matrix", "~> 0.4.2"         # Para operaciones con vectores
 gem "narray", "~> 0.6.1"         # Para cálculos de matrices más eficientes
-
-# Para operaciones asíncronas (opcional)
 gem "sidekiq", "~> 7.1"          # Para procesar tareas en segundo plano
 
 #para paginacion

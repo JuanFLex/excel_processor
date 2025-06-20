@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  devise_for :users
   # Definir la ruta raíz
   root 'file_uploads#index'
   
