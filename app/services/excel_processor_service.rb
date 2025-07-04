@@ -240,52 +240,64 @@ class ExcelProcessorService
 
       # Determinar commodity y scope si hay texto completo
       if full_text.present?
-        embedding = description_embeddings[full_text]
+        # Check if context is insufficient
+        if insufficient_context(full_text)
+          values['commodity'] = 'Insufficient Context'
+          values['scope'] = 'Requires Review'
         
-        if embedding
-          # Encontrar commodity más similar (usando caché si ya se procesó)
-          values['embedding'] = embedding
-          
-          # Buscar en caché primero
-          if @commodities_cache.key?(full_text)
-            similar_commodity = @commodities_cache[full_text]
-            cache_hits += 1
-          else
-            similar_commodity = find_similar_commodity(embedding)
-            # Guardar en caché
-            @commodities_cache[full_text] = similar_commodity if similar_commodity
+        # Log ocasional para mostrar deteccion
+          if index % 10 == 0
+            Rails.logger.info " [DEMO] '#{full_text}...' → Insufficient context"
           end
+        else 
+          embedding = description_embeddings[full_text]
           
-          if similar_commodity
-            values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
-            values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
-            classified_count += 1
+          if embedding
+            # Encontrar commodity más similar (usando caché si ya se procesó)
+            values['embedding'] = embedding
             
-            # SIMPLE: Aplicar cambios de commodity si existen  
-            if manual_remap && manual_remap[:commodity_changes]
-              original_commodity = values['commodity']
-              if manual_remap[:commodity_changes][original_commodity].present?
-                new_commodity = manual_remap[:commodity_changes][original_commodity]
-                values['commodity'] = new_commodity
-                values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
-                
-                if index % 10 == 0
-                  Rails.logger.info "   🔄 [REMAP] '#{original_commodity}' → '#{new_commodity}'"
+            # Buscar en caché primero
+            if @commodities_cache.key?(full_text)
+              similar_commodity = @commodities_cache[full_text]
+              cache_hits += 1
+            else
+              similar_commodity = find_similar_commodity(embedding)
+              # Guardar en caché
+              @commodities_cache[full_text] = similar_commodity if similar_commodity
+            end
+            
+            if similar_commodity
+              values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
+              values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+              classified_count += 1
+              
+              # SIMPLE: Aplicar cambios de commodity si existen  
+              if manual_remap && manual_remap[:commodity_changes]
+                original_commodity = values['commodity']
+                if manual_remap[:commodity_changes][original_commodity].present?
+                  new_commodity = manual_remap[:commodity_changes][original_commodity]
+                  values['commodity'] = new_commodity
+                  values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+                  
+                  if index % 10 == 0
+                    Rails.logger.info "   🔄 [REMAP] '#{original_commodity}' → '#{new_commodity}'"
+                  end
                 end
               end
+              
+              # Log ocasional para mostrar clasificaciones exitosas
+              if index % 10 == 0  # Cada 10 items
+                Rails.logger.info "   ✨ [DEMO] '#{full_text[0..50]}...' → Classified as: #{values['commodity']}"
+              end
+            else
+              values['commodity'] = 'Unknown'
+              values['scope'] = 'Out of scope'
             end
-            
-            # Log ocasional para mostrar clasificaciones exitosas
-            if index % 10 == 0  # Cada 10 items
-              Rails.logger.info "   ✨ [DEMO] '#{full_text[0..50]}...' → Classified as: #{values['commodity']}"
-            end
+        
           else
             values['commodity'] = 'Unknown'
             values['scope'] = 'Out of scope'
           end
-        else
-          values['commodity'] = 'Unknown'
-          values['scope'] = 'Out of scope'
         end
       end
       
@@ -475,5 +487,11 @@ class ExcelProcessorService
       end
     end
     text_parts.join(' ')
+  end
+
+  def insufficient_context(text)
+    return true if text.length < 10
+    return true if text.split(/[,;\s\-_|\/]+/).count { |word| word.length >= 3 } < 2
+    false
   end
 end
