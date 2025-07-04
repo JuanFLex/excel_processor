@@ -1,6 +1,6 @@
 class CommodityReferencesController < ApplicationController
   def index
-    @commodities = CommodityReference.order(:level2_desc).page(params[:page]).per(20)
+    @commodities = CommodityReference.order(:infinex_scope_status, :level2_desc).page(params[:page]).per(20)
   end
   
   def upload

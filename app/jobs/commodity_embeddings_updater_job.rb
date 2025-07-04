@@ -10,10 +10,10 @@ class CommodityEmbeddingsUpdaterJob < ApplicationJob
       
       # Procesar en lotes
       references_without_embeddings.find_in_batches(batch_size: 50) do |batch|
-        descriptions = batch.map { |record| record.level3_desc }
+        full_texts = batch.map { |record| record.full_text_for_embedding }
         
         # Generar embeddings para este lote
-        embeddings = OpenaiService.get_embeddings(descriptions)
+        embeddings = OpenaiService.get_embeddings(full_texts)
         
         # Actualizar cada registro con su embedding correspondiente
         ActiveRecord::Base.transaction do

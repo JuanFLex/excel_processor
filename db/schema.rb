@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_06_20_152433) do
+ActiveRecord::Schema[7.1].define(version: 2025_06_30_160912) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -51,6 +51,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_06_20_152433) do
     t.jsonb "embedding"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "keyword"
     t.index ["infinex_scope_status"], name: "index_commodity_references_on_infinex_scope_status"
     t.index ["level2_desc"], name: "index_commodity_references_on_level2_desc"
   end

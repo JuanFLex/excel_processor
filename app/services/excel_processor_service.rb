@@ -204,8 +204,7 @@ class ExcelProcessorService
   def process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index, manual_remap = nil)
     # Extraer todas las descripciones para calcular embeddings en lote
     descriptions = batch_rows.map do |row|
-      description_column = column_mapping['DESCRIPTION']
-      description_column ? row[description_column].to_s.strip : ''
+      build_full_text_for_embedding(row, column_mapping)
     end
     
     # Filtrar descripciones vacías
@@ -223,8 +222,8 @@ class ExcelProcessorService
       Rails.logger.info "⚡ [DEMO] Embeddings generated! Each description now has a #{embeddings.first&.size || 0}-dimensional 'fingerprint'"
       
       description_indices.each_with_index do |row_idx, embed_idx|
-        description = descriptions[row_idx]
-        description_embeddings[description] = embeddings[embed_idx] if embeddings[embed_idx]
+        full_text = descriptions[row_idx]
+        description_embeddings[full_text] = embeddings[embed_idx] if embeddings[embed_idx]
       end
     end
     
@@ -237,23 +236,24 @@ class ExcelProcessorService
     
     batch_rows.each_with_index do |row, index|
       values = extract_values(row, column_mapping)
-      
-      # Determinar commodity y scope si hay descripción
-      if values['description'].present?
-        embedding = description_embeddings[values['description']]
+      full_text = build_full_text_for_embedding(row, column_mapping)
+
+      # Determinar commodity y scope si hay texto completo
+      if full_text.present?
+        embedding = description_embeddings[full_text]
         
         if embedding
           # Encontrar commodity más similar (usando caché si ya se procesó)
           values['embedding'] = embedding
           
           # Buscar en caché primero
-          if @commodities_cache.key?(values['description'])
-            similar_commodity = @commodities_cache[values['description']]
+          if @commodities_cache.key?(full_text)
+            similar_commodity = @commodities_cache[full_text]
             cache_hits += 1
           else
             similar_commodity = find_similar_commodity(embedding)
             # Guardar en caché
-            @commodities_cache[values['description']] = similar_commodity if similar_commodity
+            @commodities_cache[full_text] = similar_commodity if similar_commodity
           end
           
           if similar_commodity
@@ -277,7 +277,7 @@ class ExcelProcessorService
             
             # Log ocasional para mostrar clasificaciones exitosas
             if index % 10 == 0  # Cada 10 items
-              Rails.logger.info "   ✨ [DEMO] '#{values['description'][0..50]}...' → Classified as: #{values['commodity']}"
+              Rails.logger.info "   ✨ [DEMO] '#{full_text[0..50]}...' → Classified as: #{values['commodity']}"
             end
           else
             values['commodity'] = 'Unknown'
@@ -454,5 +454,26 @@ class ExcelProcessorService
     
     # Guardar la ruta del archivo en el modelo
     @processed_file.update(result_file_path: file_path.to_s)
+  end
+
+  #Metodo para construir texto completo para embedding incluyendo campos adicionales.
+  def build_full_text_for_embedding(row, column_mapping)
+    text_parts=[]
+
+    #Descripcion (campo principal)
+    if column_mapping['DESCRIPTION']
+      description = row[column_mapping['DESCRIPTION']].to_s.strip
+      text_parts << description if description.present?
+    end
+
+    #Campos adicionales para concatenar
+    additional_fields = ['GLOBAL_COMM_CODE_DESC','LEVEL1_DESC','LEVEL2_DESC','LEVEL3_DESC']
+    additional_fields.each do |field|
+      if column_mapping[field]
+        field_value = row[column_mapping[field]].to_s.strip
+        text_parts << field_value if field_value.present?
+      end
+    end
+    text_parts.join(' ')
   end
 end

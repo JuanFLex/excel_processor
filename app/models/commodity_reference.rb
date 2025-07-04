@@ -1,6 +1,18 @@
 class CommodityReference < ApplicationRecord
   validates :level3_desc, presence: true
   
+  #Metodo para generar el texto completo para embeddings
+  def full_text_for_embedding
+    parts = [
+      global_comm_code_desc,
+      level1_desc,
+      level2_desc,
+      level3_desc,
+      keyword
+    ].compact.reject(&:blank?)
+    parts.join(' ')
+  end
+
   # Método para encontrar el commodity más similar a una descripción dada
   def self.find_most_similar(description_embedding, limit = 1)
     return [] if description_embedding.nil?

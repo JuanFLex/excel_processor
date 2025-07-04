@@ -8,6 +8,9 @@ class CommodityReferenceLoader
   def load_from_csv(file_path)
     csv_data = CSV.read(file_path, headers: true)
     
+    #Fix para BOM: limpiar caracteres invisibles en headers uFEFF
+    csv_data.headers.map! {|h| h.to_s.strip.gsub(/^\uFEFF/, '')} if csv_data.headers
+
     # Crear referencias sin embeddings primero
     references = []
     
@@ -19,11 +22,12 @@ class CommodityReferenceLoader
         next if CommodityReferenceFilter.should_skip?(row)
 
         reference = CommodityReference.create!(
-          global_comm_code_desc: row['GLOBAL_COMM_CODE_DESC'],
+          global_comm_code_desc: row[0],
           level1_desc: row['LEVEL1_DESC'],
           level2_desc: row['LEVEL2_DESC'],
           level3_desc: row['LEVEL3_DESC'],
-          infinex_scope_status: row['Infinex Scope Status']
+          infinex_scope_status: row['Infinex Scope Status'],
+          keyword: row['KEYWORDS']
         )
         
         references << reference
