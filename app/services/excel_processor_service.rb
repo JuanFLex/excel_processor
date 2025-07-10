@@ -415,7 +415,7 @@ class ExcelProcessorService
       headers = [
         'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-        'LAST_PO', 'EAU', 'Commodity', 'Scope'
+        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Unique_flg'
       ]
       
       Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
@@ -433,8 +433,13 @@ class ExcelProcessorService
       
       Rails.logger.info "💾 [DEMO] Writing #{@processed_file.processed_items.count} classified products to Excel..."
       
+      item_tracker = Set.new # Para rastrear items únicos
+
       # Procesar items en lotes para evitar problemas de memoria
       @processed_file.processed_items.find_each(batch_size: 500) do |item|
+        unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
+        item_tracker.add(item.item)
+
         sheet.add_row [
           item.sugar_id,
           item.item,
@@ -447,7 +452,8 @@ class ExcelProcessorService
           item.last_po,
           item.eau,
           item.commodity,
-          item.scope
+          item.scope,
+          unique_flg
         ]
       end
       

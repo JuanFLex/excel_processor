@@ -8,7 +8,8 @@ class CommodityReference < ApplicationRecord
       level1_desc,
       level2_desc,
       level3_desc,
-      keyword
+      keyword,
+      mfr
     ].compact.reject(&:blank?)
     parts.join(' ')
   end

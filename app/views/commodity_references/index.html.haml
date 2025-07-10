@@ -21,7 +21,7 @@
           %table.min-w-full
             %thead.bg-gray-50.border-b.border-gray-200
               %tr
-                - ['Global Comm Code Desc','Level 1', 'Level 2', 'Level 3','Keywords', 'Scope Status'].each_with_index do |header, i|
+                - ['Global Comm Code Desc','Level 1', 'Level 2', 'Level 3','Keywords','MFR', 'Scope Status'].each_with_index do |header, i|
                   %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider{class: ('text-center' if i == 5)}
                     = header
             /cambio para mostrar primero los in scope y los q tienen keywords
@@ -39,6 +39,8 @@
                     .text-sm.text-gray-600= commodity.level3_desc
                   %td.px-6.py-4
                     .text-sm.text-gray-600= commodity.keyword.present? ? commodity.keyword : '-'
+                  %td.px-6.py-4
+                    .text-sm.text-gray-600= commodity.mfr.present? ? commodity.mfr : '-'
                   %td.px-6.py-4.text-center
                     %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded{class: commodity.infinex_scope_status == 'In Scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}
                       = commodity.infinex_scope_status
