@@ -415,7 +415,7 @@ class ExcelProcessorService
       headers = [
         'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Unique_flg'
+        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Unique_flg', 'POTENTIAL_CW_MPN', 'MANUFACTURER_LOOKUP'
       ]
       
       Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
@@ -439,6 +439,7 @@ class ExcelProcessorService
       @processed_file.processed_items.find_each(batch_size: 500) do |item|
         unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
         item_tracker.add(item.item)
+        lookup_data = ItemLookup.lookup_by_supplier_pn(item.mfg_partno) 
 
         sheet.add_row [
           item.sugar_id,
@@ -453,14 +454,17 @@ class ExcelProcessorService
           item.eau,
           item.commodity,
           item.scope,
-          unique_flg
+          unique_flg, 
+          lookup_data&.dig(:mpn),
+          lookup_data&.dig(:cw_cost),
+          lookup_data&.dig(:manufacturer)
         ]
       end
       
       # Autoajustar columnas
-      sheet.auto_filter = "A1:L1"
+      sheet.auto_filter = "A1:N1"
       # Ajustar el ancho de las columnas
-      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 15
     end
     
     # Guardar el archivo

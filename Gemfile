@@ -19,6 +19,9 @@ gem "tailwindcss-rails"
 gem "haml-rails", "~> 2.1"
 gem "devise", "~> 4.9"          # Autenticación de usuarios
 
+gem "activerecord-sqlserver-adapter", "~> 7.0"
+gem "tiny_tds", "~> 2.1"
+
 # Excel processing
 gem "roo", "~> 2.10.0"          # Para leer archivos Excel
 gem "caxlsx", "~> 4.0"           # Para crear archivos Excel
