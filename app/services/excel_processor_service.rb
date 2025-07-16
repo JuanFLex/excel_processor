@@ -456,7 +456,6 @@ class ExcelProcessorService
           item.scope,
           unique_flg, 
           lookup_data&.dig(:mpn),
-          lookup_data&.dig(:cw_cost),
           lookup_data&.dig(:manufacturer)
         ]
       end
@@ -464,7 +463,7 @@ class ExcelProcessorService
       # Autoajustar columnas
       sheet.auto_filter = "A1:N1"
       # Ajustar el ancho de las columnas
-      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 15
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 15, 15
     end
     
     # Guardar el archivo
