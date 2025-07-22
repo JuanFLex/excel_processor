@@ -23,10 +23,19 @@ class OpenaiService
       texts.each_with_index do |text, index|
         sanitized_text = text.to_s.strip
         
+        # Buscar primero en caché de memoria
         if @embeddings_cache.key?(sanitized_text)
           cached_embeddings[index] = @embeddings_cache[sanitized_text]
         else
-          uncached_texts << { text: sanitized_text, index: index }
+          # Buscar en base de datos
+          db_embedding = find_embedding_in_db(sanitized_text)
+          if db_embedding
+            cached_embeddings[index] = db_embedding
+            @embeddings_cache[sanitized_text] = db_embedding
+            Rails.logger.info "💾 [BD CACHE] Embedding encontrado para: #{sanitized_text[0..30]}..."
+          else
+            uncached_texts << { text: sanitized_text, index: index }
+          end
         end
       end
       
@@ -171,6 +180,11 @@ class OpenaiService
     end
     
     private
+    
+    # Buscar embedding existente en base de datos
+    def find_embedding_in_db(text)
+      ProcessedItem.where("description = ? AND embedding IS NOT NULL", text).first&.embedding
+    end
     
     # Estimar tokens para text-embedding-3-small (aprox 1 token = 4 caracteres)
     def estimate_tokens(text)

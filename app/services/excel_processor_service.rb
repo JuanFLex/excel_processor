@@ -338,6 +338,9 @@ class ExcelProcessorService
     values['last_po'] = clean_monetary_value(values['last_po'])
     values['eau'] = values['eau'].to_i if values['eau'].present?
     
+    # Estandarizar nombre de manufacturero
+    values['global_mfg_name'] = ManufacturerMapping.standardize(values['global_mfg_name'])
+    
     values
   end
   
