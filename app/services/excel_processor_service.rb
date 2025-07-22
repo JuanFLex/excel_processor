@@ -167,6 +167,11 @@ class ExcelProcessorService
           @scope_cache[existing_level3_desc] = scope
         end
         
+        # Si tiene cruce en SQL Server, automáticamente In scope
+        if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+          values['scope'] = 'In scope'
+        end
+        
         # SIMPLE: Aplicar cambios de commodity si existen
         if manual_remap && manual_remap[:commodity_changes]
           original_commodity = values['commodity']
@@ -188,6 +193,11 @@ class ExcelProcessorService
       else
         values['commodity'] = 'Unknown'
         values['scope'] = 'Out of scope'
+        
+        # Si tiene cruce en SQL Server, automáticamente In scope aún siendo Unknown
+        if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+          values['scope'] = 'In scope'
+        end
       end
       
       processed_items << values
@@ -244,6 +254,11 @@ class ExcelProcessorService
         if insufficient_context(full_text)
           values['commodity'] = 'Insufficient Context'
           values['scope'] = 'Requires Review'
+          
+          # Si tiene cruce en SQL Server, automáticamente In scope
+          if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+            values['scope'] = 'In scope'
+          end
         
         # Log ocasional para mostrar deteccion
           if index % 10 == 0
@@ -269,6 +284,12 @@ class ExcelProcessorService
             if similar_commodity
               values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
               values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+              
+              # Si tiene cruce en SQL Server, automáticamente In scope
+              if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+                values['scope'] = 'In scope'
+              end
+              
               classified_count += 1
               
               # SIMPLE: Aplicar cambios de commodity si existen  
@@ -297,6 +318,11 @@ class ExcelProcessorService
           else
             values['commodity'] = 'Unknown'
             values['scope'] = 'Out of scope'
+            
+            # Si tiene cruce en SQL Server, automáticamente In scope
+            if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+              values['scope'] = 'In scope'
+            end
           end
         end
       end
