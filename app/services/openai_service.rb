@@ -5,8 +5,13 @@ class OpenaiService
   # Cache en memoria para evitar recalcular embeddings frecuentes
   @embeddings_cache = {}
   
+  # Rate limiting para proteger contra desactivación de embeddings
+  @tokens_per_minute = 0
+  @minute_start = Time.current.beginning_of_minute
+  TOKEN_LIMIT_PER_MINUTE = 250_000
+  
   class << self
-    attr_accessor :embeddings_cache
+    attr_accessor :embeddings_cache, :tokens_per_minute, :minute_start
     
     def get_embeddings(texts)
       return [] if texts.empty?
@@ -44,6 +49,10 @@ class OpenaiService
       # Procesar textos no cacheados en lotes
       uncached_texts.each_slice(20) do |batch|
         batch_texts = batch.map { |item| item[:text] }
+        
+        # Rate limiting: verificar y esperar si es necesario
+        total_tokens = batch_texts.sum { |text| estimate_tokens(text) }
+        check_and_wait_if_needed(total_tokens)
         
         response = client.embeddings(
           parameters: {
@@ -159,6 +168,41 @@ class OpenaiService
       
       embeddings = get_embeddings([truncated_text])
       embeddings.first
+    end
+    
+    private
+    
+    # Estimar tokens para text-embedding-3-small (aprox 1 token = 4 caracteres)
+    def estimate_tokens(text)
+      (text.to_s.length / 4.0).ceil
+    end
+    
+    # Verificar rate limit y esperar si es necesario para proteger embeddings
+    def check_and_wait_if_needed(estimated_tokens)
+      current_minute = Time.current.beginning_of_minute
+      
+      # Reset contador si cambió el minuto
+      if current_minute > @minute_start
+        @tokens_per_minute = 0
+        @minute_start = current_minute
+      end
+      
+      # Si excedería el límite, esperar hasta el próximo minuto
+      if @tokens_per_minute + estimated_tokens > TOKEN_LIMIT_PER_MINUTE
+        sleep_time = 60 - Time.current.sec + 1 # +1 para estar seguro
+        Rails.logger.warn "⏳ [RATE LIMIT] Se alcanzó el límite de #{TOKEN_LIMIT_PER_MINUTE} tokens/min. Esperando #{sleep_time}s para proteger embeddings..."
+        sleep(sleep_time)
+        @tokens_per_minute = 0
+        @minute_start = Time.current.beginning_of_minute
+      end
+      
+      # Actualizar contador
+      @tokens_per_minute += estimated_tokens
+      
+      # Log ocasional para monitoreo
+      if @tokens_per_minute % 50_000 < estimated_tokens
+        Rails.logger.info "📊 [RATE LIMIT] Tokens usados en este minuto: #{@tokens_per_minute}/#{TOKEN_LIMIT_PER_MINUTE}"
+      end
     end
   end
 end
