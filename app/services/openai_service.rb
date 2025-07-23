@@ -14,6 +14,11 @@ class OpenaiService
     attr_accessor :embeddings_cache, :tokens_per_minute, :minute_start
     
     def get_embeddings(texts)
+      # Switch a mock si está configurado
+      if ENV['MOCK_OPENAI'] == 'true'
+        return MockOpenaiService.get_embeddings(texts)
+      end
+      
       return [] if texts.empty?
       
       # Filtrar textos que ya están en caché
@@ -100,6 +105,11 @@ class OpenaiService
     end
     
     def identify_columns(sample_rows, target_columns)
+      # Switch a mock si está configurado
+      if ENV['MOCK_OPENAI'] == 'true'
+        return MockOpenaiService.identify_columns(sample_rows, target_columns)
+      end
+      
       return {} if sample_rows.empty?
       
       client = OpenAI::Client.new
@@ -171,6 +181,11 @@ class OpenaiService
     end
     
     def get_embedding_for_text(text)
+      # Switch a mock si está configurado
+      if ENV['MOCK_OPENAI'] == 'true'
+        return MockOpenaiService.get_embedding_for_text(text)
+      end
+      
       # Truncar textos largos para reducir tokens
       truncated_text = text.to_s.strip
       truncated_text = truncated_text[0...1000] if truncated_text.length > 1000

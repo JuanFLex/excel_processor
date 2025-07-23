@@ -18,6 +18,11 @@ class ItemLookup < ApplicationRecord
 
     # Método simple para lookup por SUPPLIER_PN 
     def self.lookup_by_supplier_pn(mfg_partno)
+      # Switch a mock si está configurado
+      if ENV['MOCK_SQL_SERVER'] == 'true'
+        return MockItemLookup.lookup_by_supplier_pn(mfg_partno)
+      end
+      
       return nil if mfg_partno.blank?
 
       result = connection.select_all(
