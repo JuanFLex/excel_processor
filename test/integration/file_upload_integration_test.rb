@@ -5,6 +5,11 @@ class FileUploadIntegrationTest < ActionDispatch::IntegrationTest
     # Limpiar datos de pruebas anteriores
     ProcessedFile.destroy_all
     ProcessedItem.destroy_all
+    CommodityReference.destroy_all
+    ManufacturerMapping.destroy_all
+    
+    # Crear datos de prueba necesarios
+    create_test_data
   end
 
   test "complete file upload and processing workflow" do
@@ -32,8 +37,8 @@ class FileUploadIntegrationTest < ActionDispatch::IntegrationTest
     assert_equal 'queued', processed_file.status
     assert processed_file.original_file.attached?
     
-    # Paso 4: Simular procesamiento del job (sin hacer llamadas reales a OpenAI)
-    simulate_processing(processed_file)
+    # Paso 4: Procesar archivo con funcionalidad real
+    process_file_real(processed_file)
     
     # Paso 5: Verificar resultados
     processed_file.reload
@@ -69,69 +74,64 @@ class FileUploadIntegrationTest < ActionDispatch::IntegrationTest
       sheet.add_row ['ITEM', 'DESCRIPTION', 'MFG_PARTNO', 'USD_STD_COST', 'LEVEL3_DESC']
       
       # Test data
-      sheet.add_row ['ITEM001', 'Test packaging item 1', 'PKG-001', '10.50', 'PACK LABELS']
-      sheet.add_row ['ITEM002', 'Test packaging item 2', 'PKG-002', '15.75', 'PACK BROWN BOX']
-      sheet.add_row ['ITEM003', 'Test hardware item', 'HW-001', '5.25', 'HARDWARE']
+      sheet.add_row ['ITEM001', 'packaging labels adhesive premium quality', 'PKG-001', '10.50', 'PACK LABELS']
+      sheet.add_row ['ITEM002', 'brown cardboard shipping box medium size', 'PKG-002', '15.75', 'PACK BROWN BOX']
+      sheet.add_row ['ITEM003', 'stainless steel bolt hardware fastener', 'HW-001', '5.25', 'HARDWARE']
     end
     
     package.serialize(file_path)
     file_path
   end
 
-  def simulate_processing(processed_file)
-    # Simular lo que hace ExcelProcessorJob sin llamadas reales a OpenAI
-    
-    # 1. Simular mapeo de columnas
-    column_mapping = {
-      'ITEM' => 'ITEM',
-      'DESCRIPTION' => 'DESCRIPTION', 
-      'MFG_PARTNO' => 'MFG_PARTNO',
-      'STD_COST' => 'USD_STD_COST',
-      'LEVEL3_DESC' => 'LEVEL3_DESC'
-    }
-    processed_file.update(column_mapping: column_mapping)
-    
-    # 2. Crear items procesados simulados
-    test_items = [
+  def create_test_data
+    # Crear commodity references necesarias
+    CommodityReference.create!([
       {
-        item: 'ITEM001',
-        description: 'Test packaging item 1',
-        mfg_partno: 'PKG-001',
-        std_cost: 10.50,
-        commodity: 'PACK LABELS',
-        scope: 'In scope'
+        global_comm_code_desc: "PACKAGING",
+        level1_desc: "INDIRECT MATERIALS",
+        level2_desc: "PACKAGING",
+        level3_desc: "PACK LABELS",
+        infinex_scope_status: "In Scope"
       },
       {
-        item: 'ITEM002', 
-        description: 'Test packaging item 2',
-        mfg_partno: 'PKG-002',
-        std_cost: 15.75,
-        commodity: 'PACK BROWN BOX',
-        scope: 'In scope'  
+        global_comm_code_desc: "PACKAGING",
+        level1_desc: "INDIRECT MATERIALS", 
+        level2_desc: "PACKAGING",
+        level3_desc: "PACK BROWN BOX",
+        infinex_scope_status: "In Scope"
       },
       {
-        item: 'ITEM003',
-        description: 'Test hardware item',
-        mfg_partno: 'HW-001', 
-        std_cost: 5.25,
-        commodity: 'HARDWARE',
-        scope: 'Out of scope'
+        global_comm_code_desc: "HARDWARE",
+        level1_desc: "DIRECT MATERIALS",
+        level2_desc: "HARDWARE",
+        level3_desc: "HARDWARE",
+        infinex_scope_status: "Out of scope"
       }
-    ]
+    ])
     
-    test_items.each do |item_data|
-      processed_file.processed_items.create!(item_data)
-    end
+    # Crear manufacturer mappings
+    ManufacturerMapping.create!([
+      { original_name: "TEST MFG CO", standardized_name: "TEST MANUFACTURER INC" },
+      { original_name: "SAMSUNG CO", standardized_name: "SAMSUNG INC" }
+    ])
+  end
+  
+  def process_file_real(processed_file)
+    skip "Skipping real processing - set RUN_REAL_TESTS=1 to enable" unless ENV['RUN_REAL_TESTS']
     
-    # 3. Simular creación de archivo de resultado
-    result_file_path = Rails.root.join('tmp', "test_result_#{processed_file.id}.xlsx")
-    FileUtils.touch(result_file_path)  # Crear archivo vacío para la prueba
+    # Usar el servicio real de procesamiento
+    service = ExcelProcessorService.new(processed_file)
     
-    # 4. Actualizar estado
-    processed_file.update(
-      status: 'completed',
-      processed_at: Time.current,
-      result_file_path: result_file_path.to_s
-    )
+    # Obtener el archivo attachado
+    attached_file = processed_file.original_file
+    
+    # Procesar con el servicio real
+    result = service.process_upload(attached_file)
+    
+    assert result[:success], "Processing should succeed"
+    
+    puts "✅ Real processing completed successfully"
+    puts "📊 Processed items: #{processed_file.processed_items.count}"
+    puts "🎯 Classified items: #{processed_file.processed_items.where.not(commodity: 'Unknown').count}"
   end
 end
