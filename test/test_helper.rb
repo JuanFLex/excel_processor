@@ -8,8 +8,13 @@ module ActiveSupport
     parallelize(workers: :number_of_processors)
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
-    fixtures :all
+    # fixtures :all  # Comentado para evitar conflictos de fixtures
 
     # Add more helper methods to be used by all tests here...
+    
+    # Limpiar base de datos antes de cada test para evitar duplicados
+    setup do
+      User.delete_all if defined?(User)
+    end
   end
 end
