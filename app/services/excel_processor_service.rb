@@ -469,8 +469,9 @@ class ExcelProcessorService
       
       item_tracker = Set.new # Para rastrear items únicos
 
-      # Procesar items en lotes para evitar problemas de memoria
-      @processed_file.processed_items.find_each(batch_size: 500) do |item|
+      # Procesar items - cargar todos de una vez para evitar N+1 queries
+      processed_items = @processed_file.processed_items.to_a
+      processed_items.each do |item|
         unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
         item_tracker.add(item.item)
         lookup_data = lookup_cross_reference(item.mfg_partno) 
