@@ -451,10 +451,12 @@ class ExcelProcessorService
       
       # Estilo para encabezados
       header_style = workbook.styles.add_style(
-        bg_color: "0066CC",
+        bg_color: "FA4616",
         fg_color: "FFFFFF",
         b: true,
-        alignment: { horizontal: :center }
+        alignment: { horizontal: :center },
+        font_name: "Century Gothic",
+        sz: 11
       )
       
       # Añadir fila de encabezados
