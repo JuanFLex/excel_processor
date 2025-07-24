@@ -368,8 +368,8 @@ class ExcelProcessorService
     values['last_po'] = clean_monetary_value(values['last_po'])
     values['eau'] = values['eau'].to_i if values['eau'].present?
     
-    # Estandarizar nombre de manufacturero
-    values['global_mfg_name'] = ManufacturerMapping.standardize(values['global_mfg_name'])
+    # Estandarizar nombre de manufacturero usando cache
+    values['global_mfg_name'] = @manufacturer_cache[values['global_mfg_name']] || values['global_mfg_name']
     
     values
   end
@@ -540,8 +540,11 @@ class ExcelProcessorService
   
   # Pre-cargar todos los cross-references para optimizar performance
   def load_cross_references_cache
-    Rails.logger.info "⚡ [PERFORMANCE] Loading cross-references cache from SQL Server..."
+    Rails.logger.info "⚡ [PERFORMANCE] Loading cross-references and manufacturer mappings cache..."
     start_time = Time.current
+    
+    # Pre-cargar manufacturer mappings
+    @manufacturer_cache = ManufacturerMapping.pluck(:original_name, :standardized_name).to_h
     
     if ENV['MOCK_SQL_SERVER'] == 'true'
       # Usar datos del mock
@@ -574,7 +577,8 @@ class ExcelProcessorService
     end
     
     load_time = ((Time.current - start_time) * 1000).round(2)
-    Rails.logger.info "⚡ [PERFORMANCE] Cross-references cache loaded: #{cache_size} entries in #{load_time}ms"
+    mfg_cache_size = @manufacturer_cache.size
+    Rails.logger.info "⚡ [PERFORMANCE] Caches loaded: #{cache_size} cross-refs + #{mfg_cache_size} manufacturers in #{load_time}ms"
   end
   
   # Método optimizado para lookup usando cache
