@@ -10,6 +10,7 @@ class ExcelProcessorService
     @commodities_cache = {} # Cache para evitar consultas repetidas
     @scope_cache = {} # NUEVO: Cache para scopes de commodities existentes
     @cross_references_cache = {} # Cache para cross-references de SQL Server
+    @commodity_references_cache = [] # Cache para commodity references con embeddings
   end
   
   def process_upload(file, manual_remap = nil)
@@ -18,8 +19,9 @@ class ExcelProcessorService
       @processed_file.update(status: 'processing')
       Rails.logger.info "🚀 [DEMO] Starting file processing: #{@processed_file.original_filename}"
       
-      # Pre-cargar cross-references para optimizar performance
+      # Pre-cargar cross-references y commodities para optimizar performance
       load_cross_references_cache
+      load_commodity_references_cache
       
       # Leer el archivo Excel
       Rails.logger.info "📖 [DEMO] Reading Excel file and analyzing structure..."
@@ -280,7 +282,7 @@ class ExcelProcessorService
               similar_commodity = @commodities_cache[full_text]
               cache_hits += 1
             else
-              similar_commodity = find_similar_commodity(embedding)
+              similar_commodity = find_similar_commodity_cached(embedding)
               # Guardar en caché
               @commodities_cache[full_text] = similar_commodity if similar_commodity
             end
@@ -408,9 +410,6 @@ class ExcelProcessorService
     end
   end
   
-  def find_similar_commodity(embedding)
-    CommodityReference.find_most_similar(embedding).first
-  end
   
   def insert_items_batch(items)
     # Insertar en lote para mejor rendimiento
@@ -585,5 +584,45 @@ class ExcelProcessorService
   def lookup_cross_reference(mfg_partno)
     return nil if mfg_partno.blank?
     @cross_references_cache[mfg_partno]
+  end
+  
+  # Pre-cargar commodity references para optimizar búsqueda de similitud
+  def load_commodity_references_cache
+    Rails.logger.info "⚡ [PERFORMANCE] Loading commodity references cache..."
+    start_time = Time.current
+    
+    # Cargar todos los commodities con embeddings
+    @commodity_references_cache = CommodityReference.where.not(embedding: nil).to_a
+    
+    cache_size = @commodity_references_cache.size
+    memory_mb = (cache_size * 6.3 / 1000).round(1) # Estimación de memoria en MB
+    load_time = ((Time.current - start_time) * 1000).round(2)
+    
+    Rails.logger.info "⚡ [PERFORMANCE] Commodity cache loaded: #{cache_size} entries (~#{memory_mb} MB) in #{load_time}ms"
+  end
+  
+  # Método optimizado para encontrar commodity similar usando cache
+  def find_similar_commodity_cached(embedding)
+    return nil if embedding.nil? || @commodity_references_cache.empty?
+    
+    best_match = nil
+    best_similarity = -Float::INFINITY
+    
+    @commodity_references_cache.each do |commodity|
+      next unless commodity.embedding.is_a?(Array)
+      
+      # Calcular similitud de coseno (mismo algoritmo que antes)
+      dot_product = 0
+      commodity.embedding.each_with_index do |val, i|
+        dot_product += val * embedding[i]
+      end
+      
+      if dot_product > best_similarity
+        best_similarity = dot_product
+        best_match = commodity
+      end
+    end
+    
+    best_match
   end
 end
