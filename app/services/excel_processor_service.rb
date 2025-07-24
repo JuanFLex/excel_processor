@@ -417,7 +417,7 @@ class ExcelProcessorService
           item: item_values['item'],
           mfg_partno: item_values['mfg_partno'],
           global_mfg_name: item_values['global_mfg_name'],
-          description: item_values['description'],
+          description: item_values['description'].presence || item_values['mfg_partno'].presence || 'No description provided',
           site: item_values['site'],
           std_cost: item_values['std_cost'],
           last_purchase_price: item_values['last_purchase_price'],
