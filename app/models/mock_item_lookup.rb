@@ -1,11 +1,9 @@
 class MockItemLookup
   # Mock para ItemLookup cuando no hay acceso a SQL Server
   
-  def self.lookup_by_supplier_pn(mfg_partno)
-    return nil if mfg_partno.blank?
-    
-    # Base de datos falsa de part numbers con cruces para testing
-    mock_crosses = {
+  # Método para acceder a los datos mock desde ExcelProcessorService
+  def self.mock_crosses
+    {
       # Packaging items
       'PKG-001' => { 
         supplier_pn: 'SUP-PKG-001', 
@@ -62,6 +60,10 @@ class MockItemLookup
         manufacturer: 'CROSS REF MFG' 
       }
     }
+  end
+  
+  def self.lookup_by_supplier_pn(mfg_partno)
+    return nil if mfg_partno.blank?
     
     result = mock_crosses[mfg_partno]
     

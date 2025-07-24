@@ -9,6 +9,7 @@ class ExcelProcessorService
     @processed_file = processed_file
     @commodities_cache = {} # Cache para evitar consultas repetidas
     @scope_cache = {} # NUEVO: Cache para scopes de commodities existentes
+    @cross_references_cache = {} # Cache para cross-references de SQL Server
   end
   
   def process_upload(file, manual_remap = nil)
@@ -16,6 +17,9 @@ class ExcelProcessorService
       # Actualizar estado
       @processed_file.update(status: 'processing')
       Rails.logger.info "🚀 [DEMO] Starting file processing: #{@processed_file.original_filename}"
+      
+      # Pre-cargar cross-references para optimizar performance
+      load_cross_references_cache
       
       # Leer el archivo Excel
       Rails.logger.info "📖 [DEMO] Reading Excel file and analyzing structure..."
@@ -168,7 +172,7 @@ class ExcelProcessorService
         end
         
         # Si tiene cruce en SQL Server, automáticamente In scope
-        if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+        if lookup_cross_reference(values['mfg_partno']).present?
           values['scope'] = 'In scope'
         end
         
@@ -195,7 +199,7 @@ class ExcelProcessorService
         values['scope'] = 'Out of scope'
         
         # Si tiene cruce en SQL Server, automáticamente In scope aún siendo Unknown
-        if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+        if lookup_cross_reference(values['mfg_partno']).present?
           values['scope'] = 'In scope'
         end
       end
@@ -256,7 +260,7 @@ class ExcelProcessorService
           values['scope'] = 'Requires Review'
           
           # Si tiene cruce en SQL Server, automáticamente In scope
-          if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+          if lookup_cross_reference(values['mfg_partno']).present?
             values['scope'] = 'In scope'
           end
         
@@ -286,7 +290,7 @@ class ExcelProcessorService
               values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
               
               # Si tiene cruce en SQL Server, automáticamente In scope
-              if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+              if lookup_cross_reference(values['mfg_partno']).present?
                 values['scope'] = 'In scope'
               end
               
@@ -320,7 +324,7 @@ class ExcelProcessorService
             values['scope'] = 'Out of scope'
             
             # Si tiene cruce en SQL Server, automáticamente In scope
-            if ItemLookup.lookup_by_supplier_pn(values['mfg_partno']).present?
+            if lookup_cross_reference(values['mfg_partno']).present?
               values['scope'] = 'In scope'
             end
           end
@@ -470,7 +474,7 @@ class ExcelProcessorService
       @processed_file.processed_items.find_each(batch_size: 500) do |item|
         unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
         item_tracker.add(item.item)
-        lookup_data = ItemLookup.lookup_by_supplier_pn(item.mfg_partno) 
+        lookup_data = lookup_cross_reference(item.mfg_partno) 
 
         sheet.add_row [
           item.sugar_id,
@@ -533,5 +537,50 @@ class ExcelProcessorService
     return true if text.length < 10
     return true if text.split(/[,;\s\-_|\/]+/).count { |word| word.length >= 3 } < 2
     false
+  end
+  
+  # Pre-cargar todos los cross-references para optimizar performance
+  def load_cross_references_cache
+    Rails.logger.info "⚡ [PERFORMANCE] Loading cross-references cache from SQL Server..."
+    start_time = Time.current
+    
+    if ENV['MOCK_SQL_SERVER'] == 'true'
+      # Usar datos del mock
+      MockItemLookup.send(:mock_crosses).each do |mpn, data|
+        @cross_references_cache[mpn] = data
+      end
+      cache_size = @cross_references_cache.size
+    else
+      # Cargar datos reales de SQL Server en una sola consulta
+      begin
+        result = ItemLookup.connection.select_all(
+          "SELECT DISTINCT CROSS_REF_MPN, SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG 
+           FROM INX_dataLabCrosses 
+           WHERE CROSS_REF_MPN IS NOT NULL"
+        )
+        
+        result.rows.each do |row|
+          @cross_references_cache[row[0]] = {
+            supplier_pn: row[1],
+            mpn: row[2],
+            cw_cost: row[3],
+            manufacturer: row[4]
+          }
+        end
+        cache_size = @cross_references_cache.size
+      rescue => e
+        Rails.logger.error "Error loading cross-references cache: #{e.message}"
+        cache_size = 0
+      end
+    end
+    
+    load_time = ((Time.current - start_time) * 1000).round(2)
+    Rails.logger.info "⚡ [PERFORMANCE] Cross-references cache loaded: #{cache_size} entries in #{load_time}ms"
+  end
+  
+  # Método optimizado para lookup usando cache
+  def lookup_cross_reference(mfg_partno)
+    return nil if mfg_partno.blank?
+    @cross_references_cache[mfg_partno]
   end
 end
