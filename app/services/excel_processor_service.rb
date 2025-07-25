@@ -461,9 +461,26 @@ class ExcelProcessorService
         font_name: "Century Gothic",
         sz: 11
       )
+
+      auxiliary_style = workbook.styles.add_style(
+        bg_color: "5498c6",
+        fg_color: "FFFFFF", 
+        b: true,
+        alignment: { horizontal: :center },
+        font_name: "Century Gothic",
+        sz: 11
+      )
       
-      # Añadir fila de encabezados
-      sheet.add_row headers, style: header_style
+      # Definir qué columnas son del Quote form (usarán el estilo NARANJA original)
+      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'COMMODITY']
+
+      # Crear array de estilos basado en el nombre de la columna
+      header_styles = headers.map do |header|
+        quote_form_columns.include?(header) ? header_style : auxiliary_style  # Quote form = NARANJA, Auxiliares = AZUL
+      end
+
+      # Agregar fila con estilos específicos por columna
+      sheet.add_row headers, style: header_styles
       
       Rails.logger.info "💾 [DEMO] Writing #{@processed_file.processed_items.count} classified products to Excel..."
       
@@ -491,7 +508,7 @@ class ExcelProcessorService
           item.scope,
           unique_flg, 
           lookup_data&.dig(:mpn),
-          item.ear_value.to_i  # EAR (sin decimales)
+          item.ear_value&.to_i,  # EAR (sin decimales)
           item.ear_threshold_status  # EAR Threshold Status
           
         ]
