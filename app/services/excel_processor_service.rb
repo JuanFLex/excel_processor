@@ -447,7 +447,7 @@ class ExcelProcessorService
       headers = [
         'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR Threshold Status','EAR'
+        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR', 'EAR Threshold Status'
       ]
       
       Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
@@ -491,15 +491,16 @@ class ExcelProcessorService
           item.scope,
           unique_flg, 
           lookup_data&.dig(:mpn),
-          item.ear_threshold_status,  # EAR Threshold Status
-          item.ear_value  # EAR
+          item.ear_value.to_i  # EAR (sin decimales)
+          item.ear_threshold_status  # EAR Threshold Status
+          
         ]
       end
       
       # Autoajustar columnas
       sheet.auto_filter = "A1:P1"
       # Ajustar el ancho de las columnas
-      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 15,20,20
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25
     end
     
     # Guardar el archivo
