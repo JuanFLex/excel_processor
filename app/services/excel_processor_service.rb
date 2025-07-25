@@ -11,6 +11,7 @@ class ExcelProcessorService
     @scope_cache = {} # NUEVO: Cache para scopes de commodities existentes
     @cross_references_cache = {} # Cache para cross-references de SQL Server
     @commodity_references_cache = [] # Cache para commodity references con embeddings
+    @proposal_quotes_cache = {}  # Cache para proposal quotes
   end
   
   def process_upload(file, manual_remap = nil)
@@ -19,9 +20,10 @@ class ExcelProcessorService
       @processed_file.update(status: 'processing')
       Rails.logger.info "🚀 [DEMO] Starting file processing: #{@processed_file.original_filename}"
       
-      # Pre-cargar cross-references y commodities para optimizar performance
+      # Pre-cargar cross-references, commodities y proposal quotes para optimizar performance
       load_cross_references_cache
       load_commodity_references_cache
+      load_proposal_quotes_cache
       
       # Leer el archivo Excel
       Rails.logger.info "📖 [DEMO] Reading Excel file and analyzing structure..."
@@ -447,7 +449,8 @@ class ExcelProcessorService
       headers = [
         'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR', 'EAR Threshold Status'
+        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR', 'EAR Threshold Status',
+        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number'
       ]
       
       Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
@@ -493,6 +496,8 @@ class ExcelProcessorService
         item_tracker.add(item.item)
         lookup_data = lookup_cross_reference(item.mfg_partno) 
 
+        proposal_data = lookup_proposal_quote(item.item)
+
         sheet.add_row [
           item.sugar_id,
           item.item,
@@ -509,15 +514,18 @@ class ExcelProcessorService
           unique_flg, 
           lookup_data&.dig(:mpn),
           item.ear_value&.to_i,  # EAR (sin decimales)
-          item.ear_threshold_status  # EAR Threshold Status
+          item.ear_threshold_status,  # EAR Threshold Status
+          proposal_data[:previously_quoted],
+          proposal_data[:quote_date],
+          proposal_data[:previous_sfdc_quote_number]
           
         ]
       end
       
       # Autoajustar columnas
-      sheet.auto_filter = "A1:P1"
+      sheet.auto_filter = "A1:S1"
       # Ajustar el ancho de las columnas
-      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25, 15, 15, 20
     end
     
     # Guardar el archivo
@@ -645,5 +653,67 @@ class ExcelProcessorService
     end
     
     best_match
+    end
+
+    def load_proposal_quotes_cache
+    Rails.logger.info "⚡ [PERFORMANCE] Loading proposal quotes cache..."
+    start_time = Time.current
+    
+    if ENV['MOCK_SQL_SERVER'] == 'true'
+      # Mock data para testing
+      @proposal_quotes_cache = {}
+      cache_size = 0
+    else
+      # Conexión real a SQL Server
+      begin
+        # Consulta optimizada: obtener el registro más reciente por ITEM
+        result = ItemLookup.connection.select_all(
+          "SELECT ITEM, LOG_DATE, SUGAR_ID
+          FROM (
+            SELECT ITEM, LOG_DATE, SUGAR_ID,
+                    ROW_NUMBER() OVER (PARTITION BY ITEM ORDER BY LOG_DATE DESC) as rn
+            FROM INX_rptProposalDetailNEW
+            WHERE ITEM IS NOT NULL
+          ) ranked
+          WHERE rn = 1"
+        )
+        
+        result.rows.each do |row|
+          item = row[0]
+          log_date = row[1]
+          sugar_id = row[2]
+          
+          @proposal_quotes_cache[item] = {
+            previously_quoted: 'YES',
+            quote_date: log_date,
+            previous_sfdc_quote_number: sugar_id
+          }
+        end
+        
+        cache_size = @proposal_quotes_cache.size
+      rescue => e
+        Rails.logger.error "Error loading proposal quotes cache: #{e.message}"
+        cache_size = 0
+      end
+    end
+    
+    load_time = ((Time.current - start_time) * 1000).round(2)
+    Rails.logger.info "⚡ [PERFORMANCE] Proposal quotes cache loaded: #{cache_size} entries in #{load_time}ms"
+  end
+
+  def lookup_proposal_quote(item)
+    return nil if item.blank?
+    
+    # Si existe en cache, devolver datos
+    if @proposal_quotes_cache.key?(item)
+      @proposal_quotes_cache[item]
+    else
+      # Si no existe, devolver estructura con "NO"
+      {
+        previously_quoted: 'NO',
+        quote_date: nil,
+        previous_sfdc_quote_number: nil
+      }
+    end
   end
 end

@@ -93,20 +93,38 @@
                 <section>
                     <h2 class="text-sm font-medium text-gray-900 uppercase tracking-wider mb-6">Processing Summary</h2>
                     <% if @items_sample&.any? %>
-                        <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                             <div class="p-6 bg-white border border-green-200 rounded-lg">
                                 <p class="text-2xl font-semibold text-green-700">
-                                    <%= number_with_delimiter(@processed_file.processed_items.where(scope: 'In scope').count) %>
+                                <%= number_with_delimiter(@processed_file.processed_items.where(scope: 'In scope').count) %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-green-600 mt-1">In Scope</p>
                             </div>
                             <div class="p-6 bg-white border border-red-200 rounded-lg">
                                 <p class="text-2xl font-semibold text-red-700">
-                                    <%= number_with_delimiter(@processed_file.processed_items.where(scope: 'Out of scope').count) %>
+                                <%= number_with_delimiter(@processed_file.processed_items.where(scope: 'Out of scope').count) %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-red-600 mt-1">Out of Scope</p>
                             </div>
-                        </div>
+                            <div class="p-6 bg-white border border-blue-200 rounded-lg">
+                                <p class="text-2xl font-semibold text-blue-700">
+                                $<%= number_to_human(@total_ear, precision: 1, format: '%n%u') %>
+                                </p>
+                                <p class="text-xs uppercase tracking-wider text-blue-600 mt-1">Total EAR</p>
+                            </div>
+                            <div class="p-6 bg-white border border-orange-200 rounded-lg">
+                                <p class="text-2xl font-semibold text-orange-700">
+                                <%= number_with_delimiter(@exceeds_threshold_count) %>
+                                </p>
+                                <p class="text-xs uppercase tracking-wider text-orange-600 mt-1">Exceeds Threshold</p>
+                            </div>
+                            <div class="p-6 bg-white border border-gray-200 rounded-lg">
+                                <p class="text-2xl font-semibold text-gray-700">
+                                <%= number_with_delimiter(@below_threshold_count) %>
+                                </p>
+                                <p class="text-xs uppercase tracking-wider text-gray-600 mt-1">Below Threshold</p>
+                            </div>
+                            </div>
 
                         <h3 class="text-xs font-medium text-gray-700 uppercase tracking-wider mb-3">
                             Sample Items <span class="text-gray-400 font-normal">(showing <%= [@items_sample.size, 10].min %> of <%= number_with_delimiter(@processed_file.processed_items.count) %>)</span>
