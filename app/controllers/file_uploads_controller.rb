@@ -37,6 +37,7 @@ class FileUploadsController < ApplicationController
   def show
     @processed_file = ProcessedFile.find(params[:id])
     @items_sample = @processed_file.processed_items.limit(5)
+    @analytics = @processed_file.analytics
   end
   
   def download
