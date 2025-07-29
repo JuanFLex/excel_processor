@@ -17,31 +17,35 @@
         Commodity Classifications
 
       - if @commodities.any?
-        .border.border-gray-200.rounded-lg.overflow-hidden
-          %table.min-w-full
+        .border.border-gray-200.rounded-lg.overflow-hidden.overflow-x-auto
+          %table.min-w-full.w-max
             %thead.bg-gray-50.border-b.border-gray-200
               %tr
-                - ['Global Comm Code Desc','Level 1', 'Level 2', 'Level 3','Keywords','MFR', 'Scope Status'].each_with_index do |header, i|
-                  %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider{class: ('text-center' if i == 6)}
-                    = header
+                %th.px-4.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-48 Global Comm Code Desc
+                %th.px-3.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-32 Level 1
+                %th.px-3.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-36 Level 2
+                %th.px-3.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-40 Level 3
+                %th.px-3.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-32 Keywords
+                %th.px-3.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-24 MFR
+                %th.px-3.py-3.text-center.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.w-28 Scope Status
             /cambio para mostrar primero los in scope y los q tienen keywords
 
             %tbody.divide-y.divide-gray-100
               - @commodities.each do |commodity|
                 %tr.hover:bg-gray-50.transition-colors
-                  %td.px-6.py-4
-                    .text-sm.font-medium.text-gray-900= commodity.global_comm_code_desc
-                  %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.level1_desc
-                  %td.px-6.py-4
-                    .text-sm.font-medium.text-gray-900= commodity.level2_desc
-                  %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.level3_desc
-                  %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.keyword.present? ? commodity.keyword : '-'
-                  %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.mfr.present? ? commodity.mfr : '-'
-                  %td.px-6.py-4.text-center
+                  %td.px-4.py-4.w-48
+                    .text-sm.font-medium.text-gray-900.truncate= commodity.global_comm_code_desc
+                  %td.px-3.py-4.w-32
+                    .text-sm.text-gray-600.truncate= commodity.level1_desc
+                  %td.px-3.py-4.w-36
+                    .text-sm.font-medium.text-gray-900.truncate= commodity.level2_desc
+                  %td.px-3.py-4.w-40
+                    .text-sm.text-gray-600.truncate= commodity.level3_desc
+                  %td.px-3.py-4.w-32
+                    .text-sm.text-gray-600.truncate= commodity.keyword.present? ? commodity.keyword : '-'
+                  %td.px-3.py-4.w-24
+                    .text-sm.text-gray-600.truncate= commodity.mfr.present? ? commodity.mfr : '-'
+                  %td.px-3.py-4.text-center.w-28
                     %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded{class: commodity.infinex_scope_status == 'In Scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}
                       = commodity.infinex_scope_status
 
