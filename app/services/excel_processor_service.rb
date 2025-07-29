@@ -476,7 +476,7 @@ class ExcelProcessorService
       
       # Estilos para formato de datos
       currency_style = workbook.styles.add_style(
-        format_code: '"$"#,##0.00',
+        format_code: '$#,##0.00',
         font_name: "Century Gothic",
         sz: 11
       )
