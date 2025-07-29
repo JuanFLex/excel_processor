@@ -512,7 +512,7 @@ class ExcelProcessorService
         proposal_data = lookup_proposal_quote(item.item)
 
         sheet.add_row [
-          item.sugar_id,
+          item.sugar_id,  # Mapea a SFDC_QUOTE_NUMBER
           item.item,
           item.mfg_partno,
           item.global_mfg_name,

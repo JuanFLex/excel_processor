@@ -61,8 +61,8 @@
                             <div class="relative h-64">
                                 <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                     <div class="text-center">
-                                        <p class="text-3xl font-bold text-gray-900">
-                                            <%= number_with_delimiter(@processed_file.processed_items.count) %>
+                                        <p class="text-2xl font-semibold text-gray-900">
+                                            <%= number_to_human(@processed_file.processed_items.count, precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                         </p>
                                         <p class="text-xs text-gray-500 mt-1">Total parts</p>
                                     </div>
@@ -119,8 +119,8 @@
                             <div class="relative h-64">
                                 <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                     <div class="text-center">
-                                        <p class="text-3xl font-bold text-gray-900">
-                                            <%= number_to_currency(total_ear, precision: 0) %>
+                                        <p class="text-2xl font-semibold text-gray-900">
+                                            $<%= number_to_human(total_ear, precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                         </p>
                                         <p class="text-xs text-gray-500 mt-1">Total EAR</p>
                                     </div>
