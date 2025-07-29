@@ -22,6 +22,30 @@
                         <% if @processed_file.completed? && @processed_file.result_file_path.present? %>
                             <%= link_to "Download Result", download_file_upload_path(@processed_file),
                                  class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors" %>
+                            <%
+                            # Construir el correo con métricas
+                            quote_url = "http://10.5.3.242:3001#{file_upload_path(@processed_file)}"
+                            subject = "New Quote Request - #{@processed_file.original_filename}"
+                            
+                            body = "Hello,\n\n"
+                            body += "I'm sending a new quote request for processing.\n\n"
+                            body += "File: #{@processed_file.original_filename}\n"
+                            body += "Quote Link: #{quote_url}\n\n"
+                            body += "Processing Summary:\n"
+                            body += "- Total Parts: #{number_with_delimiter(@processed_file.processed_items.count)}\n"
+                            if @analytics
+                              body += "- In Scope EAR: #{number_to_currency(@analytics[:in_scope_total][:ear], precision: 0)}\n"
+                              body += "- In Scope Parts: #{number_with_delimiter(@analytics[:in_scope_total][:count])}\n"
+                              body += "- Meeting Threshold EAR: #{number_to_currency(@analytics[:meeting_threshold][:ear], precision: 0)}\n"
+                              body += "- Meeting Threshold Parts: #{number_with_delimiter(@analytics[:meeting_threshold][:count])}\n"
+                            end
+                            body += "\nPlease review and provide quote.\n\n"
+                            body += "Best regards"
+                            
+                            mailto_link = "mailto:lynn.moore@flexcoreworks.com?cc=linda.ramos@flex.com&subject=#{CGI.escape(subject)}&body=#{CGI.escape(body)}"
+                            %>
+                            <%= link_to "Send to Quotes Team", mailto_link,
+                                 class: "px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors" %>
                             <%= link_to "Remap & Reprocess", remap_file_upload_path(@processed_file),
                                  class: "px-5 py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors" %>
                         <% end %>
