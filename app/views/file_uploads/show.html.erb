@@ -43,7 +43,7 @@
                             body += "\r\nPlease review and provide quote.\r\n\r\n"
                             body += "Best regards"
                             
-                            mailto_link = "mailto:lynn.moore@flexcoreworks.com?cc=linda.ramos@flex.com&subject=#{CGI.escape(subject)}&body=#{CGI.escape(body)}"
+                            mailto_link = "mailto:lynn.moore@flexcoreworks.com?cc=linda.ramos@flex.com&subject=#{ERB::Util.url_encode(subject)}&body=#{ERB::Util.url_encode(body)}"
                             %>
                             <%= link_to "Send to Quotes Team", mailto_link,
                                  class: "px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors" %>
