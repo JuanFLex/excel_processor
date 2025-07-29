@@ -59,17 +59,28 @@
                         <div class="bg-white border border-gray-200 rounded-lg p-6">
                             <h3 class="text-lg font-medium text-gray-900 text-center mb-4">Part Count</h3>
                             <div class="relative h-64">
-                                <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                     <div class="text-center">
-                                        <p class="text-2xl font-semibold text-gray-900">
+                                        <p class="text-3xl font-bold text-gray-900">
                                             <%= number_with_delimiter(@processed_file.processed_items.count) %>
                                         </p>
-                                        <p class="text-xs text-gray-500">Total parts</p>
+                                        <p class="text-xs text-gray-500 mt-1">Total parts</p>
                                     </div>
                                 </div>
-                                <%= pie_chart @processed_file.processed_items.group(:scope).count,
+                                <%
+                                  scope_data = @processed_file.processed_items.group(:scope).count
+                                  # Mapeo dinámico de colores basado en el scope
+                                  scope_colors = scope_data.keys.map do |scope|
+                                    case scope
+                                    when "In scope" then "#10B981"    # Verde
+                                    when "Out of scope" then "#EF4444" # Rojo
+                                    else "#F59E0B"                     # Naranja para otros
+                                    end
+                                  end
+                                %>
+                                <%= pie_chart scope_data,
                                     height: "100%",
-                                    colors: ["#10B981", "#EF4444", "#F59E0B", "#6B7280"],
+                                    colors: scope_colors,
                                     donut: true,
                                     library: {
                                         cutout: '65%',
@@ -106,17 +117,27 @@
                             %>
                             <h3 class="text-lg font-medium text-gray-900 text-center mb-4">EAR Value</h3>
                             <div class="relative h-64">
-                                <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                     <div class="text-center">
-                                        <p class="text-2xl font-semibold text-gray-900">
+                                        <p class="text-3xl font-bold text-gray-900">
                                             <%= number_to_currency(total_ear, precision: 0) %>
                                         </p>
-                                        <p class="text-xs text-gray-500">Total EAR</p>
+                                        <p class="text-xs text-gray-500 mt-1">Total EAR</p>
                                     </div>
                                 </div>
+                                <%
+                                  # Mapeo dinámico de colores para EAR también
+                                  ear_colors = ear_by_scope.keys.map do |scope|
+                                    case scope
+                                    when "In scope" then "#10B981"    # Verde
+                                    when "Out of scope" then "#EF4444" # Rojo
+                                    else "#F59E0B"                     # Naranja para otros
+                                    end
+                                  end
+                                %>
                                 <%= pie_chart ear_by_scope,
                                     height: "100%",
-                                    colors: ["#10B981", "#EF4444", "#F59E0B", "#6B7280"],
+                                    colors: ear_colors,
                                     donut: true,
                                     library: {
                                         cutout: '65%',
@@ -168,7 +189,7 @@
                                 <h3 class="text-sm font-medium text-gray-700 uppercase tracking-wider">Meeting Threshold</h3>
                             </div>
                             <div class="text-center">
-                                <h3 class="text-sm font-medium text-gray-700 uppercase tracking-wider">W/Crosses</h3>
+                                <h3 class="text-sm font-medium text-gray-700 uppercase tracking-wider">W/Crosses Meeting Threshold</h3>
                             </div>
                         </div>
 
@@ -176,28 +197,28 @@
                         <div class="grid grid-cols-4 gap-4 mb-4">
                             <div class="p-6 bg-white border border-blue-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-blue-700">
-                                    $<%= number_to_human(@analytics[:in_scope_total][:ear], precision: 1) %>
+                                    $<%= number_to_human(@analytics[:in_scope_total][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-blue-600 mt-1">EAR</p>
                             </div>
                             
                             <div class="p-6 bg-white border border-green-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-green-700">
-                                    $<%= number_to_human(@analytics[:previously_quoted][:ear], precision: 1) %>
+                                    $<%= number_to_human(@analytics[:previously_quoted][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-green-600 mt-1">EAR</p>
                             </div>
                             
                             <div class="p-6 bg-white border border-orange-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-orange-700">
-                                    $<%= number_to_human(@analytics[:meeting_threshold][:ear], precision: 1) %>
+                                    $<%= number_to_human(@analytics[:meeting_threshold][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-orange-600 mt-1">EAR</p>
                             </div>
                             
                             <div class="p-6 bg-white border border-purple-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-purple-700">
-                                    $<%= number_to_human(@analytics[:crosses_threshold][:ear], precision: 1) %>
+                                    $<%= number_to_human(@analytics[:crosses_threshold][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-purple-600 mt-1">EAR</p>
                             </div>

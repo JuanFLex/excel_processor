@@ -447,7 +447,7 @@ class ExcelProcessorService
     workbook.add_worksheet(name: "Processed Items") do |sheet|
       # Encabezados
       headers = [
-        'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
+        'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
         'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR', 'EAR Threshold Status',
         'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number'
@@ -474,8 +474,21 @@ class ExcelProcessorService
         sz: 11
       )
       
+      # Estilos para formato de datos
+      currency_style = workbook.styles.add_style(
+        format_code: '"$"#,##0.00',
+        font_name: "Century Gothic",
+        sz: 11
+      )
+      
+      thousands_style = workbook.styles.add_style(
+        format_code: '#,##0',
+        font_name: "Century Gothic", 
+        sz: 11
+      )
+      
       # Definir qué columnas son del Quote form (usarán el estilo NARANJA original)
-      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'COMMODITY']
+      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'Commodity']
 
       # Crear array de estilos basado en el nombre de la columna
       header_styles = headers.map do |header|
@@ -521,6 +534,16 @@ class ExcelProcessorService
           
         ]
       end
+      
+      # Aplicar formato a columnas específicas
+      # STD_COST (columna G/7), LAST_PURCHASE_PRICE (H/8), LAST_PO (I/9), EAR (O/15) = Currency
+      sheet.col_style(6, currency_style, row_offset: 1)   # STD_COST
+      sheet.col_style(7, currency_style, row_offset: 1)   # LAST_PURCHASE_PRICE  
+      sheet.col_style(8, currency_style, row_offset: 1)   # LAST_PO
+      sheet.col_style(14, currency_style, row_offset: 1)  # EAR
+      
+      # EAU (columna J/10) = Thousands
+      sheet.col_style(9, thousands_style, row_offset: 1)  # EAU
       
       # Autoajustar columnas
       sheet.auto_filter = "A1:S1"
