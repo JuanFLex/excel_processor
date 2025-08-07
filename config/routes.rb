@@ -24,6 +24,7 @@ Rails.application.routes.draw do
     collection do
       get :upload
       post :process_upload
+      get :search  # Para autocompletado JSON
     end
   end
 end

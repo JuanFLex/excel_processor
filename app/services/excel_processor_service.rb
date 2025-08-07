@@ -12,6 +12,7 @@ class ExcelProcessorService
     @cross_references_cache = {} # Cache para cross-references de SQL Server
     @commodity_references_cache = [] # Cache para commodity references con embeddings
     @proposal_quotes_cache = {}  # Cache para proposal quotes
+    @existing_items_lookup = {} # NUEVO: Lookup table para remapping de líneas individuales
   end
   
   def process_upload(file, manual_remap = nil)
@@ -24,6 +25,39 @@ class ExcelProcessorService
       load_cross_references_cache
       load_commodity_references_cache
       load_proposal_quotes_cache
+      
+      # NUEVO: Si es remapping, crear lookup table de items existentes antes de limpiarlos
+      @existing_items_lookup = {}
+      if manual_remap.present?
+        Rails.logger.info "📝 [REMAP] Creating lookup table from existing items before clearing..."
+        
+        # Crear lookup table basado en item + descripción para poder aplicar remapping
+        @processed_file.processed_items.each do |existing_item|
+          # Crear múltiples claves para mayor flexibilidad en matching
+          keys = [
+            existing_item.item,
+            existing_item.description&.strip,
+            "#{existing_item.item}|#{existing_item.description&.strip}"
+          ].compact
+          
+          keys.each do |key|
+            @existing_items_lookup[key] ||= []
+            @existing_items_lookup[key] << {
+              id: existing_item.id,
+              item: existing_item.item,
+              description: existing_item.description,
+              commodity: existing_item.commodity,
+              scope: existing_item.scope
+            }
+          end
+        end
+        
+        Rails.logger.info "🔍 [REMAP] Created lookup table with #{@existing_items_lookup.size} keys for remapping"
+        
+        # Ahora sí, limpiar los items existentes
+        Rails.logger.info "🗑️ [REMAP] Clearing existing processed items..."
+        @processed_file.processed_items.delete_all
+      end
       
       # Leer el archivo Excel
       Rails.logger.info "📖 [DEMO] Reading Excel file and analyzing structure..."
@@ -180,7 +214,11 @@ class ExcelProcessorService
           values['scope'] = 'In scope'
         end
         
-        # SIMPLE: Aplicar cambios de commodity si existen
+        # Aplicar remapping de líneas individuales (NUEVO)
+        Rails.logger.info "🔧 [DEBUG] About to apply line remapping (level3) - manual_remap present: #{manual_remap.present?}"
+        values = apply_line_remapping(values, manual_remap, index)
+        
+        # LEGACY: Aplicar cambios masivos de commodity (para retrocompatibilidad)
         if manual_remap && manual_remap[:commodity_changes]
           original_commodity = values['commodity']
           if manual_remap[:commodity_changes][original_commodity].present?
@@ -189,7 +227,7 @@ class ExcelProcessorService
             values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
             
             if index % 10 == 0
-              Rails.logger.info "   🔄 [REMAP] '#{original_commodity}' → '#{new_commodity}'"
+              Rails.logger.info "   🔄 [LEGACY REMAP] '#{original_commodity}' → '#{new_commodity}'"
             end
           end
         end
@@ -300,20 +338,6 @@ class ExcelProcessorService
               
               classified_count += 1
               
-              # SIMPLE: Aplicar cambios de commodity si existen  
-              if manual_remap && manual_remap[:commodity_changes]
-                original_commodity = values['commodity']
-                if manual_remap[:commodity_changes][original_commodity].present?
-                  new_commodity = manual_remap[:commodity_changes][original_commodity]
-                  values['commodity'] = new_commodity
-                  values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
-                  
-                  if index % 10 == 0
-                    Rails.logger.info "   🔄 [REMAP] '#{original_commodity}' → '#{new_commodity}'"
-                  end
-                end
-              end
-              
               # Log ocasional para mostrar clasificaciones exitosas
               if index % 10 == 0  # Cada 10 items
                 Rails.logger.info "   ✨ [DEMO] '#{full_text[0..50]}...' → Classified as: #{values['commodity']}"
@@ -331,6 +355,32 @@ class ExcelProcessorService
             if lookup_cross_reference(values['mfg_partno']).present?
               values['scope'] = 'In scope'
             end
+          end
+        end
+      else
+        values['commodity'] = 'Unknown'
+        values['scope'] = 'Out of scope'
+        
+        # Si tiene cruce en SQL Server, automáticamente In scope aún siendo Unknown
+        if lookup_cross_reference(values['mfg_partno']).present?
+          values['scope'] = 'In scope'
+        end
+      end
+      
+      # Aplicar remapping de líneas individuales SIEMPRE (para todos los items)
+      Rails.logger.info "🔧 [DEBUG] About to apply line remapping for ALL items - manual_remap present: #{manual_remap.present?}"
+      values = apply_line_remapping(values, manual_remap, index)
+      
+      # LEGACY: Aplicar cambios masivos de commodity (para retrocompatibilidad)
+      if manual_remap && manual_remap[:commodity_changes]
+        original_commodity = values['commodity']
+        if manual_remap[:commodity_changes][original_commodity].present?
+          new_commodity = manual_remap[:commodity_changes][original_commodity]
+          values['commodity'] = new_commodity
+          values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+          
+          if index % 10 == 0
+            Rails.logger.info "   🔄 [LEGACY REMAP] '#{original_commodity}' → '#{new_commodity}'"
           end
         end
       end
@@ -738,5 +788,54 @@ class ExcelProcessorService
         previous_sfdc_quote_number: nil
       }
     end
+  end
+  
+  # NUEVO: Aplicar remapping de líneas individuales usando lookup table
+  def apply_line_remapping(values, manual_remap, current_index)
+    return values unless manual_remap && manual_remap[:line_remapping] && @existing_items_lookup
+    
+    # DEBUG: Log lo que tenemos
+    Rails.logger.info "🔍 [DEBUG] Checking remapping for index #{current_index}"
+    
+    # Estrategia: Buscar por item + descripción usando lookup table
+    item_identifier = values['item'] || values['mfg_partno'] || values['description']
+    
+    # Claves de búsqueda en el lookup table
+    search_keys = [
+      values['item'],
+      values['description']&.strip,
+      "#{values['item']}|#{values['description']&.strip}"
+    ].compact
+    
+    Rails.logger.info "🔍 [DEBUG] Searching lookup table with keys: #{search_keys.inspect}"
+    
+    # Buscar en lookup table
+    matching_items = []
+    search_keys.each do |key|
+      if @existing_items_lookup[key]
+        matching_items.concat(@existing_items_lookup[key])
+      end
+    end
+    
+    matching_items.uniq! { |item| item[:id] }
+    Rails.logger.info "🔍 [DEBUG] Found #{matching_items.size} matching items in lookup table for '#{item_identifier}'"
+    
+    matching_items.each do |existing_item|
+      remap_key = "#{existing_item[:id]}_commodity"
+      
+      if manual_remap[:line_remapping][remap_key].present?
+        new_commodity = manual_remap[:line_remapping][remap_key]
+        original_commodity = values['commodity']
+        
+        # Aplicar el remapping
+        values['commodity'] = new_commodity
+        values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+        
+        Rails.logger.info "🎯 [LINE REMAP] Item #{existing_item[:id]} ('#{item_identifier}'): '#{original_commodity}' → '#{new_commodity}' (Scope: #{values['scope']})"
+        break # Solo aplicar el primer match
+      end
+    end
+    
+    values
   end
 end

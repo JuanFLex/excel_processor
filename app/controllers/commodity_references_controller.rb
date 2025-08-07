@@ -41,6 +41,28 @@ class CommodityReferencesController < ApplicationController
     end
   end
   
+  def search
+    query = params[:q]
+    
+    if query.present?
+      commodities = CommodityReference.search(query)
+                                    .limit(20)
+                                    .select(:id, :level3_desc, :infinex_scope_status)
+      
+      results = commodities.map do |commodity|
+        {
+          id: commodity.id,
+          text: commodity.level3_desc,
+          scope: commodity.infinex_scope_status
+        }
+      end
+      
+      render json: results
+    else
+      render json: []
+    end
+  end
+  
   private
   
   def commodity_params

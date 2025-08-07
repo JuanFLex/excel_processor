@@ -91,8 +91,18 @@ class FileUploadsController < ApplicationController
       spreadsheet = open_spreadsheet_from_tempfile(temp_file)
       all_headers = spreadsheet.row(1)
       
-      # Preparar datos para la vista
-      @items_sample = @processed_file.processed_items.limit(10)
+      # Preparar datos para la vista con búsqueda
+      @search_query = params[:search]
+      items_query = @processed_file.processed_items
+      
+      if @search_query.present?
+        items_query = items_query.where(
+          "item ILIKE ? OR description ILIKE ? OR commodity ILIKE ?", 
+          "%#{@search_query}%", "%#{@search_query}%", "%#{@search_query}%"
+        )
+      end
+      
+      @items_sample = items_query.limit(20)
       @current_commodities = @processed_file.processed_items.distinct.pluck(:commodity).compact
       @available_commodities = CommodityReference.distinct.pluck(:level3_desc).compact.sort
       @commodity_counts = @processed_file.processed_items.group(:commodity).count
@@ -118,13 +128,18 @@ class FileUploadsController < ApplicationController
       return
     end
     
+    # Debug: Log what we're receiving
+    Rails.logger.info "DEMO: Reprocessing started for file #{@processed_file.id}"
+    Rails.logger.info "DEMO: Raw params received: #{params.inspect}"
+    Rails.logger.info "DEMO: Filtered remap_params: #{remap_params.inspect}"
+    
     # Actualizar estado
     @processed_file.update(status: 'processing')
     
     # Encolar trabajo de reprocesamiento con parámetros
     ExcelProcessorJob.perform_later(@processed_file, nil, remap_params)
     
-    redirect_to file_upload_path(@processed_file), notice: 'Reprocessing started. Changes will be applied shortly.'
+    redirect_to file_upload_path(@processed_file), notice: 'Reprocessing started with remapping. Changes will be applied shortly.'
   end
   
   private
@@ -137,8 +152,7 @@ class FileUploadsController < ApplicationController
   def remap_params
     params.require(:remap).permit(
       column_mapping: {},
-      commodity_changes: {},
-      custom_mapping: [:from, :to, :scope]
+      line_remapping: {}
     )
   end
   

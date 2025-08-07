@@ -22,9 +22,8 @@ class ExcelProcessorJob < ApplicationJob
         return
       end
       
-      # Limpiar items existentes para sobrescribir
-      Rails.logger.info "🗑️ [REMAP] Clearing existing processed items..."
-      processed_file.processed_items.delete_all
+      # Durante remapping, necesitamos limpiar items después de extraer datos de referencia para remapping
+      Rails.logger.info "🔄 [REMAP] Processing remapping - will clear items after applying remapping logic..."
       
       # Crear archivo temporal del archivo guardado
       temp_file = Tempfile.new(['remap', File.extname(processed_file.original_filename)], encoding: 'ascii-8bit')
