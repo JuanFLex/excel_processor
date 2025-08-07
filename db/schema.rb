@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_07_04_213407) do
+ActiveRecord::Schema[7.1].define(version: 2025_07_22_190046) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -55,6 +55,14 @@ ActiveRecord::Schema[7.1].define(version: 2025_07_04_213407) do
     t.text "mfr"
     t.index ["infinex_scope_status"], name: "index_commodity_references_on_infinex_scope_status"
     t.index ["level2_desc"], name: "index_commodity_references_on_level2_desc"
+  end
+
+  create_table "manufacturer_mappings", force: :cascade do |t|
+    t.string "original_name", null: false
+    t.string "standardized_name", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["original_name"], name: "index_manufacturer_mappings_on_original_name"
   end
 
   create_table "processed_files", force: :cascade do |t|

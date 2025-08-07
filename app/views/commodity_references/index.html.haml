@@ -6,6 +6,15 @@
       %h1.text-2xl.font-medium.text-gray-900.mb-2 Commodity References
       %p.text-sm.text-gray-600 Manage commodity classification and scope definitions
 
+    / Search Bar
+    .mb-6
+      = form_with url: commodity_references_path, method: :get, local: true, class: "flex gap-3" do |f|
+        = f.text_field :search, value: @search_query, placeholder: "Search all fields...", 
+          class: "flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-gray-500 focus:border-gray-500"
+        = f.submit "Search", class: "px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+        - if @search_query.present?
+          = link_to "Clear", commodity_references_path, class: "px-5 py-2 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors"
+
     / Simplified Actions
     .flex.gap-4.mb-12
       = link_to "Upload Reference File", upload_commodity_references_path,
@@ -28,6 +37,7 @@
                 %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Keywords
                 %th.px-6.py-3.text-left.text-xs.font-medium.text-gray-700.uppercase.tracking-wider MFR
                 %th.px-6.py-3.text-center.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Scope Status
+                %th.px-6.py-3.text-center.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Actions
             /cambio para mostrar primero los in scope y los q tienen keywords
 
             %tbody.divide-y.divide-gray-100
@@ -48,6 +58,8 @@
                   %td.px-6.py-4.text-center
                     %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded{class: commodity.infinex_scope_status == 'In Scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}
                       = commodity.infinex_scope_status
+                  %td.px-6.py-4.text-center
+                    = link_to "Edit", edit_commodity_reference_path(commodity), class: "text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
 
       - else
         .text-center.py-12

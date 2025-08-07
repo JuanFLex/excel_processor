@@ -20,7 +20,7 @@ Rails.application.routes.draw do
     end
   end
   
-  resources :commodity_references, only: [:index] do
+  resources :commodity_references, only: [:index, :edit, :update] do
     collection do
       get :upload
       post :process_upload
