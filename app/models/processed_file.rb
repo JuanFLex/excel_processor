@@ -29,13 +29,49 @@ class ProcessedFile < ApplicationRecord
   def analytics
     @analytics ||= calculate_analytics_optimized
   end
+  
+  def unique_items_count
+    # Contar solo items únicos (primera aparición por item number) para métricas
+    unique_items.count
+  end
+  
+  def unique_items_by_scope
+    # Agrupar solo items únicos por scope para gráficas
+    unique_items.group_by(&:scope).transform_values(&:count)
+  end
+  
+  def unique_items_ear_by_scope
+    # Agrupar solo items únicos por scope y sumar EAR para gráficas
+    unique_items.group_by(&:scope).transform_values do |items| 
+      items.sum { |item| item.ear_value || 0 }
+    end
+  end
+  
+  def unique_total_ear
+    # Sumar EAR total de solo items únicos
+    unique_items.sum { |item| item.ear_value || 0 }
+  end
 
   private
   
+  def unique_items
+    # Cached method to get unique items (primera aparición por item number)
+    @unique_items ||= begin
+      item_tracker = Set.new
+      processed_items.to_a.select do |item|
+        if item_tracker.include?(item.item)
+          false # Skip duplicates
+        else
+          item_tracker.add(item.item)
+          true # Keep first occurrence
+        end
+      end
+    end
+  end
+  
   def calculate_analytics_optimized
-    # Cargar items una sola vez
-    items = processed_items.to_a
-    in_scope_items = items.select { |item| item.scope == 'In scope' }
+    # Usar solo items únicos para métricas (primera aparición por item number)
+    in_scope_items = unique_items.select { |item| item.scope == 'In scope' }
     
     # PRE-CARGAR todos los lookups de una sola vez (como hace el servicio)
     quoted_items_set = load_quoted_items_bulk(in_scope_items.map(&:item))
