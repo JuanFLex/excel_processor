@@ -75,9 +75,8 @@ class ProcessedFile < ApplicationRecord
   end
   
   def calculate_analytics_optimized
-    # Usar TODOS los items para cálculos de EAR (incluir duplicados para valores reales)
-    items = processed_items.to_a
-    in_scope_items = items.select { |item| item.scope == 'In scope' }
+    # Usar items únicos para conteos correctos, EAR se calcula después en calculate_metrics
+    in_scope_items = unique_items.select { |item| item.scope == 'In scope' }
     
     # PRE-CARGAR todos los lookups de una sola vez (como hace el servicio)
     quoted_items_set = load_quoted_items_bulk(in_scope_items.map(&:item))
@@ -120,11 +119,23 @@ class ProcessedFile < ApplicationRecord
     }
   end
   
-  def calculate_metrics(items)
-    {
-      ear: items.sum { |item| item.ear_value || 0 },
-      count: items.count
-    }
+  def calculate_metrics(unique_items_in_category)
+    # Conteo: usar los items únicos que recibe
+    count = unique_items_in_category.count
+    
+    # EAR: buscar TODOS los items que correspondan a estos únicos
+    if unique_items_in_category.any?
+      item_numbers = unique_items_in_category.map(&:item).uniq
+      scope_value = unique_items_in_category.first.scope
+      
+      # Buscar todos los items que coincidan por item number y scope
+      all_matching_items = processed_items.where(item: item_numbers, scope: scope_value)
+      ear = all_matching_items.sum { |item| item.ear_value || 0 }
+    else
+      ear = 0
+    end
+    
+    { ear: ear, count: count }
   end
   
   # BULK LOAD: Una sola consulta para todos los quoted items
