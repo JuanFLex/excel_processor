@@ -51,6 +51,11 @@ class ProcessedFile < ApplicationRecord
     # Sumar EAR total de solo items únicos
     unique_items.sum { |item| item.ear_value || 0 }
   end
+  
+  def unique_items_array
+    # Método público para acceder a los items únicos desde vistas
+    unique_items
+  end
 
   private
   

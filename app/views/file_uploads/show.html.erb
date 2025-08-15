@@ -315,7 +315,7 @@
                         <%
                         # 1. Obtener mapping de commodity (level3) -> level1 
                         commodity_to_level1 = {}
-                        unique_commodities = @processed_file.processed_items.pluck(:commodity).uniq.compact.reject(&:blank?)
+                        unique_commodities = @processed_file.unique_items_array.map(&:commodity).uniq.compact.reject(&:blank?)
                         
                         unique_commodities.each do |commodity|
                             commodity_ref = CommodityReference.find_by_commodity_exact(commodity)
@@ -325,7 +325,7 @@
                         
                         # 2. Agrupar processed_items por level1
                         level1_summary = {}
-                        @processed_file.processed_items.each do |item|
+                        @processed_file.unique_items_array.each do |item|
                             level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
                             
                             level1_summary[level1] ||= { parts: 0, ear: 0, items: [] }
