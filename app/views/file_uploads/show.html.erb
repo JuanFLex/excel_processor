@@ -155,7 +155,7 @@
                                 <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                                     <div class="text-center">
                                         <p class="text-2xl font-semibold text-gray-900">
-                                            $<%= number_to_human(total_ear).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
+                                            $<%= number_to_human(total_ear, precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                         </p>
                                         <p class="text-xs text-gray-500 mt-1">Total EAR</p>
                                     </div>
@@ -244,28 +244,28 @@
                         <div class="grid grid-cols-4 gap-4 mb-4">
                             <div class="p-6 bg-white border border-blue-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-blue-700">
-                                    $<%= number_to_human(@analytics[:in_scope_total][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
+                                    $<%= number_to_human(@analytics[:in_scope_total][:ear], precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-blue-600 mt-1">EAR</p>
                             </div>
                             
                             <div class="p-6 bg-white border border-green-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-green-700">
-                                    $<%= number_to_human(@analytics[:previously_quoted][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
+                                    $<%= number_to_human(@analytics[:previously_quoted][:ear], precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-green-600 mt-1">EAR</p>
                             </div>
                             
                             <div class="p-6 bg-white border border-orange-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-orange-700">
-                                    $<%= number_to_human(@analytics[:meeting_threshold][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
+                                    $<%= number_to_human(@analytics[:meeting_threshold][:ear], precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-orange-600 mt-1">EAR</p>
                             </div>
                             
                             <div class="p-6 bg-white border border-purple-200 rounded-lg text-center">
                                 <p class="text-2xl font-semibold text-purple-700">
-                                    $<%= number_to_human(@analytics[:crosses_threshold][:ear], precision: 2).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
+                                    $<%= number_to_human(@analytics[:crosses_threshold][:ear], precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe %>
                                 </p>
                                 <p class="text-xs uppercase tracking-wider text-purple-600 mt-1">EAR</p>
                             </div>
@@ -346,7 +346,7 @@
                         %>
 
                         <h3 class="text-xs font-medium text-gray-700 uppercase tracking-wider mb-3">
-                        Level 1 Summary <span class="text-gray-400 font-normal">(<%= level1_summary.size %> categories, $<%= number_to_human(level1_summary.values.sum { |data| data[:ear] }, precision: 1) %> total)</span>
+                        Level 1 Summary <span class="text-gray-400 font-normal">(<%= level1_summary.size %> categories, $<%= number_to_human(level1_summary.values.sum { |data| data[:ear] }, precision: 3) %> total)</span>
                         </h3>
 
                         <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
