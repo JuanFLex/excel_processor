@@ -147,8 +147,8 @@
                         <!-- Gráfica de EAR -->
                         <div class="bg-white border border-gray-200 rounded-lg p-6">
                             <%
-                            ear_by_scope = @processed_file.unique_items_ear_by_scope
-                            total_ear = @processed_file.unique_total_ear
+                            ear_by_scope = @processed_file.all_items_ear_by_scope
+                            total_ear = @processed_file.all_items_total_ear
                             %>
                             <h3 class="text-lg font-medium text-gray-900 text-center mb-4">EAR Value</h3>
                             <div class="relative h-64">
@@ -325,11 +325,18 @@
                         
                         # 2. Agrupar processed_items por level1
                         level1_summary = {}
+                        
+                        # Parts count: solo únicos
                         @processed_file.unique_items_array.each do |item|
                             level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
-                            
                             level1_summary[level1] ||= { parts: 0, ear: 0, items: [] }
                             level1_summary[level1][:parts] += 1
+                        end
+                        
+                        # EAR calculation: todos los items (incluir duplicados)
+                        @processed_file.processed_items.each do |item|
+                            level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
+                            level1_summary[level1] ||= { parts: 0, ear: 0, items: [] }
                             level1_summary[level1][:ear] += (item.ear_value || 0)
                             level1_summary[level1][:items] << item
                         end

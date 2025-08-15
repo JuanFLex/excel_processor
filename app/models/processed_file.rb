@@ -40,16 +40,16 @@ class ProcessedFile < ApplicationRecord
     unique_items.group_by(&:scope).transform_values(&:count)
   end
   
-  def unique_items_ear_by_scope
-    # Agrupar solo items únicos por scope y sumar EAR para gráficas
-    unique_items.group_by(&:scope).transform_values do |items| 
+  def all_items_ear_by_scope
+    # Agrupar TODOS los items por scope y sumar EAR (incluir duplicados para EAR real)
+    processed_items.group_by(&:scope).transform_values do |items| 
       items.sum { |item| item.ear_value || 0 }
     end
   end
   
-  def unique_total_ear
-    # Sumar EAR total de solo items únicos
-    unique_items.sum { |item| item.ear_value || 0 }
+  def all_items_total_ear
+    # Sumar EAR total de TODOS los items (incluir duplicados para EAR real)
+    processed_items.sum { |item| item.ear_value || 0 }
   end
   
   def unique_items_array
@@ -75,8 +75,9 @@ class ProcessedFile < ApplicationRecord
   end
   
   def calculate_analytics_optimized
-    # Usar solo items únicos para métricas (primera aparición por item number)
-    in_scope_items = unique_items.select { |item| item.scope == 'In scope' }
+    # Usar TODOS los items para cálculos de EAR (incluir duplicados para valores reales)
+    items = processed_items.to_a
+    in_scope_items = items.select { |item| item.scope == 'In scope' }
     
     # PRE-CARGAR todos los lookups de una sola vez (como hace el servicio)
     quoted_items_set = load_quoted_items_bulk(in_scope_items.map(&:item))
