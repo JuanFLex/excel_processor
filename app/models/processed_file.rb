@@ -159,7 +159,7 @@ class ProcessedFile < ApplicationRecord
     end
   end
   
-  # BULK LOAD: Una sola consulta para todos los cross references
+  # BULK LOAD: Consulta en chunks para evitar timeouts con archivos grandes
   def load_cross_ref_items_bulk(mfg_partnos)
     return Set.new if mfg_partnos.empty?
     return Set.new unless defined?(ItemLookup)
@@ -169,15 +169,33 @@ class ProcessedFile < ApplicationRecord
       valid_partnos = mfg_partnos.compact.reject(&:blank?)
       return Set.new if valid_partnos.empty?
       
-      # Escapar y formatear partnos para SQL Server (sin parámetros ?)
-      escaped_partnos = valid_partnos.map { |pn| "'#{pn.to_s.gsub("'", "''")}'" }.join(',')
+      # NUEVO: Procesar en chunks para evitar timeouts con archivos grandes
+      chunk_size = 1000 # Máximo 1000 partnos por consulta
+      all_results = Set.new
+      total_chunks = (valid_partnos.size / chunk_size.to_f).ceil
       
-      result = ItemLookup.connection.select_all(
-        "SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses 
-         WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL"
-      )
+      Rails.logger.info "📊 [BULK] Processing #{valid_partnos.size} partnos in #{total_chunks} chunks of #{chunk_size}"
       
-      result.rows.flatten.to_set
+      valid_partnos.each_slice(chunk_size).with_index do |partnos_chunk, index|
+        Rails.logger.info "🔄 [BULK] Processing chunk #{index + 1}/#{total_chunks}"
+        
+        # Escapar y formatear partnos para SQL Server
+        escaped_partnos = partnos_chunk.map { |pn| "'#{pn.to_s.gsub("'", "''")}'" }.join(',')
+        
+        # NUEVO: Agregar timeout explícito y usar execute para mayor control
+        result = ItemLookup.connection.execute(
+          "SET LOCK_TIMEOUT 60000; SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses 
+           WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL"
+        ).to_a
+        
+        chunk_results = result.flatten.to_set
+        all_results.merge(chunk_results)
+        
+        Rails.logger.info "✅ [BULK] Chunk #{index + 1} completed: found #{chunk_results.size} matches"
+      end
+      
+      Rails.logger.info "🎯 [BULK] Total cross-references found: #{all_results.size}"
+      all_results
     rescue => e
       Rails.logger.error "Error loading cross references: #{e.message}"
       Set.new
