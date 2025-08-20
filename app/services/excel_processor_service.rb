@@ -433,6 +433,12 @@ class ExcelProcessorService
       values[target_col.downcase] = source_col ? row[source_col] : nil
     end
     
+    # NUEVO: Si no hay ITEM, usar MFG_PARTNO como fallback
+    if values['item'].blank? && values['mfg_partno'].present?
+      values['item'] = values['mfg_partno']
+      Rails.logger.info "📋 [FALLBACK] Using MFG_PARTNO as ITEM: #{values['mfg_partno']}"
+    end
+    
     # Convertir tipos de datos según sea necesario
     values['std_cost'] = clean_monetary_value(values['std_cost'])
     values['last_purchase_price'] = clean_monetary_value(values['last_purchase_price'])
@@ -637,6 +643,12 @@ class ExcelProcessorService
     if column_mapping['DESCRIPTION']
       description = row[column_mapping['DESCRIPTION']].to_s.strip
       text_parts << description if description.present?
+    end
+
+    #NUEVO: Incluir GLOBAL_MFG_NAME para mejor matching con commodity references
+    if column_mapping['GLOBAL_MFG_NAME']
+      manufacturer = row[column_mapping['GLOBAL_MFG_NAME']].to_s.strip
+      text_parts << manufacturer if manufacturer.present?
     end
 
     #Campos adicionales para concatenar
