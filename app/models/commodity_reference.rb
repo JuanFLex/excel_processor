@@ -53,13 +53,18 @@ class CommodityReference < ApplicationRecord
   end
 
   # NUEVO: Método para buscar por commodity exacto
-  def self.find_by_commodity_exact(commodity_name)
-    where("LOWER(level3_desc) = LOWER(?)", commodity_name.to_s.strip).first
+  def self.find_by_commodity_exact(commodity_name, column_type = 'level3_desc')
+    case column_type.to_s
+    when 'global_comm_code_desc'
+      where("LOWER(global_comm_code_desc) = LOWER(?)", commodity_name.to_s.strip).first
+    else # 'level3_desc'
+      where("LOWER(level3_desc) = LOWER(?)", commodity_name.to_s.strip).first
+    end
   end
 
   # NUEVO: Método para buscar scope por commodity
-  def self.scope_for_commodity(commodity_name)
-    record = find_by_commodity_exact(commodity_name)
+  def self.scope_for_commodity(commodity_name, column_type = 'level3_desc')
+    record = find_by_commodity_exact(commodity_name, column_type)
     return 'Out of scope' unless record
     
     record.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'

@@ -200,24 +200,30 @@ class ExcelProcessorService
       
       # Obtener commodity existente del archivo (LEVEL3_DESC o GLOBAL_COMM_CODE_DESC)
       existing_commodity = nil
+      commodity_column_type = nil
       if column_mapping['LEVEL3_DESC']
         existing_commodity = row[column_mapping['LEVEL3_DESC']].to_s.strip
+        commodity_column_type = 'level3_desc'
       elsif column_mapping['GLOBAL_COMM_CODE_DESC']
         existing_commodity = row[column_mapping['GLOBAL_COMM_CODE_DESC']].to_s.strip
+        commodity_column_type = 'global_comm_code_desc'
       end
       
       if existing_commodity.present?
         values['commodity'] = existing_commodity
         
+        # Crear clave de caché que incluya el tipo de columna
+        cache_key = "#{existing_commodity}|#{commodity_column_type}"
+        
         # Buscar scope en caché primero
-        if @scope_cache.key?(existing_commodity)
-          values['scope'] = @scope_cache[existing_commodity]
+        if @scope_cache.key?(cache_key)
+          values['scope'] = @scope_cache[cache_key]
           cache_hits += 1
         else
-          # Buscar scope en base de datos usando commodity exacto
-          scope = CommodityReference.scope_for_commodity(existing_commodity)
+          # Buscar scope en base de datos usando commodity exacto y columna correcta
+          scope = CommodityReference.scope_for_commodity(existing_commodity, commodity_column_type)
           values['scope'] = scope
-          @scope_cache[existing_commodity] = scope
+          @scope_cache[cache_key] = scope
         end
         
         # Si tiene cruce en SQL Server, automáticamente In scope
