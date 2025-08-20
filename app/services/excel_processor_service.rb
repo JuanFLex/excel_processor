@@ -90,6 +90,12 @@ class ExcelProcessorService
         if level3_column
           column_mapping['LEVEL3_DESC'] = level3_column
         end
+        
+        # NUEVO: Detectar específicamente si hay una columna GLOBAL_COMM_CODE_DESC exacta
+        global_comm_code_column = detect_exact_global_comm_code_column(sample_rows)
+        if global_comm_code_column
+          column_mapping['GLOBAL_COMM_CODE_DESC'] = global_comm_code_column
+        end
       end
       
       Rails.logger.info "✅ [DEMO] Columns successfully identified by AI!"
@@ -101,22 +107,25 @@ class ExcelProcessorService
         end
       end
       
-      # NUEVO: Detectar si el archivo tiene exactamente level3_desc
+      # NUEVO: Detectar si el archivo tiene exactamente level3_desc o global_comm_code_desc
       has_level3_desc = column_mapping['LEVEL3_DESC'].present?
+      has_global_comm_code = column_mapping['GLOBAL_COMM_CODE_DESC'].present?
+      has_commodity_column = has_level3_desc || has_global_comm_code
       
-      if has_level3_desc
-        Rails.logger.info "💡 [DEMO] Detected exact LEVEL3_DESC column! Will use existing commodities and only classify scope, saving tokens."
+      if has_commodity_column
+        commodity_column = has_level3_desc ? 'LEVEL3_DESC' : 'GLOBAL_COMM_CODE_DESC'
+        Rails.logger.info "💡 [DEMO] Detected exact #{commodity_column} column! Will use existing commodities and only classify scope, saving tokens."
       else
-        Rails.logger.info "🔍 [DEMO] No LEVEL3_DESC column found. Will use AI for full classification based on description."
+        Rails.logger.info "🔍 [DEMO] No commodity column found. Will use AI for full classification based on description."
       end
       
       # Guardar el mapeo de columnas
       @processed_file.update(column_mapping: column_mapping)
       
-      Rails.logger.info "💾 [DEMO] Preparing to process #{total_rows} rows with #{has_level3_desc ? 'level3-direct' : 'full'} AI analysis..."
+      Rails.logger.info "💾 [DEMO] Preparing to process #{total_rows} rows with #{has_commodity_column ? 'commodity-direct' : 'full'} AI analysis..."
       
-      # Preparar el procesamiento por lotes
-      batch_size = 100
+      # Preparar el procesamiento por lotes - reducir para archivos grandes
+      batch_size = total_rows > 50000 ? 25 : 100
       total_batches = (total_rows / batch_size.to_f).ceil
       
       Rails.logger.info "⚡ [DEMO] Optimized processing: #{total_batches} batches of max #{batch_size} rows"
@@ -135,11 +144,11 @@ class ExcelProcessorService
         # Procesar cada fila del lote
         processed_items = []
         
-        if has_level3_desc
-          # NUEVO: Procesamiento optimizado para archivos con level3_desc existente
-          Rails.logger.info "🎯 [DEMO] Using existing level3_desc commodities, only determining scope..."
+        if has_commodity_column
+          # NUEVO: Procesamiento optimizado para archivos con commodity existente
+          Rails.logger.info "🎯 [DEMO] Using existing #{commodity_column} commodities, only determining scope..."
           
-          processed_items = process_batch_with_level3_desc(batch_rows, column_mapping, manual_remap)
+          processed_items = process_batch_with_commodity_desc(batch_rows, column_mapping, manual_remap)
           classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
           
           Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products processed with existing level3_desc commodities"
@@ -181,32 +190,34 @@ class ExcelProcessorService
   
   private
   
-  # NUEVO: Procesar lote cuando el archivo tiene level3_desc exacto
-  def process_batch_with_level3_desc(batch_rows, column_mapping, manual_remap = nil)
+  # NUEVO: Procesar lote cuando el archivo tiene commodity desc exacto (LEVEL3_DESC o GLOBAL_COMM_CODE_DESC)
+  def process_batch_with_commodity_desc(batch_rows, column_mapping, manual_remap = nil)
     processed_items = []
     cache_hits = 0
     
     batch_rows.each_with_index do |row, index|
       values = extract_values(row, column_mapping)
       
-      # Obtener level3_desc existente del archivo
-      existing_level3_desc = nil
+      # Obtener commodity existente del archivo (LEVEL3_DESC o GLOBAL_COMM_CODE_DESC)
+      existing_commodity = nil
       if column_mapping['LEVEL3_DESC']
-        existing_level3_desc = row[column_mapping['LEVEL3_DESC']].to_s.strip
+        existing_commodity = row[column_mapping['LEVEL3_DESC']].to_s.strip
+      elsif column_mapping['GLOBAL_COMM_CODE_DESC']
+        existing_commodity = row[column_mapping['GLOBAL_COMM_CODE_DESC']].to_s.strip
       end
       
-      if existing_level3_desc.present?
-        values['commodity'] = existing_level3_desc
+      if existing_commodity.present?
+        values['commodity'] = existing_commodity
         
         # Buscar scope en caché primero
-        if @scope_cache.key?(existing_level3_desc)
-          values['scope'] = @scope_cache[existing_level3_desc]
+        if @scope_cache.key?(existing_commodity)
+          values['scope'] = @scope_cache[existing_commodity]
           cache_hits += 1
         else
-          # Buscar scope en base de datos usando level3_desc exacto
-          scope = CommodityReference.scope_for_commodity(existing_level3_desc)
+          # Buscar scope en base de datos usando commodity exacto
+          scope = CommodityReference.scope_for_commodity(existing_commodity)
           values['scope'] = scope
-          @scope_cache[existing_level3_desc] = scope
+          @scope_cache[existing_commodity] = scope
         end
         
         # Si tiene cruce en SQL Server, automáticamente In scope
@@ -234,7 +245,7 @@ class ExcelProcessorService
         
         # Log ocasional para mostrar procesamiento
         if index % 20 == 0
-          Rails.logger.info "   ✨ [DEMO] '#{existing_level3_desc}' → Scope: #{values['scope']}"
+          Rails.logger.info "   ✨ [DEMO] '#{existing_commodity}' → Scope: #{values['scope']}"
         end
       else
         values['commodity'] = 'Unknown'
@@ -837,5 +848,25 @@ class ExcelProcessorService
     end
     
     values
+  end
+  
+  # Detectar columna GLOBAL_COMM_CODE_DESC con nombre exacto
+  def detect_exact_global_comm_code_column(sample_rows)
+    return nil if sample_rows.empty?
+    
+    headers = sample_rows.first.keys
+    
+    # Buscar exactamente estos nombres de columna
+    exact_matches = headers.select do |header|
+      header_normalized = header.to_s.strip
+      header_normalized == 'GLOBAL_COMM_CODE_DESC' || header_normalized == 'GLOBAL COMM CODE DESC'
+    end
+    
+    if exact_matches.any?
+      Rails.logger.info "🎯 [GLOBAL_COMM_CODE] Detected exact column: #{exact_matches.first}"
+      return exact_matches.first
+    end
+    
+    nil
   end
 end

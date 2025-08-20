@@ -1,8 +1,13 @@
 class Level3DetectorService
   
-  # Detecta si el archivo tiene una columna que contiene level3_desc
+  # Detecta si el archivo tiene una columna que contiene level3_desc o global_comm_code_desc
   def self.detect_level3_column(sample_rows)
     new.detect_level3_column(sample_rows)
+  end
+  
+  # Nuevo método para detectar GLOBAL_COMM_CODE_DESC específicamente
+  def self.detect_global_comm_code_column(sample_rows)
+    new.detect_global_comm_code_column(sample_rows)
   end
   
   def detect_level3_column(sample_rows)
@@ -26,6 +31,33 @@ class Level3DetectorService
     
     if best_column
       Rails.logger.info "🎯 [LEVEL3] Detected exact Level3 column: #{best_column}"
+      return best_column
+    end
+    
+    nil
+  end
+  
+  def detect_global_comm_code_column(sample_rows)
+    return nil if sample_rows.empty?
+    
+    headers = sample_rows.first.keys
+    
+    # Buscar columnas que podrían contener global_comm_code_desc
+    potential_columns = headers.select do |header|
+      header_normalized = header.to_s.downcase.strip
+      # Buscar exactamente global_comm_code o variantes similares
+      header_normalized.include?('global_comm_code') || 
+      header_normalized.include?('global_commodity_code') || 
+      header_normalized.include?('global comm code')
+    end
+    
+    return nil if potential_columns.empty?
+    
+    # Si encontramos columnas potenciales, verificar contenido
+    best_column = find_best_global_comm_code_column(sample_rows, potential_columns)
+    
+    if best_column
+      Rails.logger.info "🎯 [GLOBAL_COMM_CODE] Detected exact Global Commodity Code column: #{best_column}"
       return best_column
     end
     
