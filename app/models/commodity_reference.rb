@@ -67,7 +67,8 @@ class CommodityReference < ApplicationRecord
     record = find_by_commodity_exact(commodity_name, column_type)
     return 'Out of scope' unless record
     
-    record.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+    # FIX: Usar comparación case-insensitive para manejar variaciones en capitalización
+    record.infinex_scope_status&.downcase == 'in scope' ? 'In scope' : 'Out of scope'
   end
   
   # Scope para búsqueda global
@@ -80,18 +81,49 @@ class CommodityReference < ApplicationRecord
     )
   end
   
+  # Método para forzar regeneración de embedding
+  def regenerate_embedding!
+    Rails.logger.info "🔄 [EMBEDDING] Force regenerating embedding for commodity reference #{id}"
+    
+    full_text = full_text_for_embedding
+    if full_text.present?
+      new_embedding = OpenaiService.get_embedding_for_text(full_text)
+      if new_embedding
+        update_column(:embedding, new_embedding)
+        Rails.logger.info "✅ [EMBEDDING] Successfully regenerated embedding for commodity reference #{id}"
+        true
+      else
+        Rails.logger.error "❌ [EMBEDDING] Failed to generate new embedding for commodity reference #{id}"
+        false
+      end
+    else
+      Rails.logger.warn "⚠️ [EMBEDDING] No text available for embedding generation for commodity reference #{id}"
+      false
+    end
+  end
+  
   private
   
   def regenerate_embedding_if_needed
     if saved_change_to_keyword? || saved_change_to_mfr? || saved_change_to_infinex_scope_status?
-      # TODO: Aquí se regeneraría el embedding usando OpenAI
-      # Por ahora solo registramos que necesita regeneración
       changes_made = []
       changes_made << "keyword" if saved_change_to_keyword?
       changes_made << "manufacturer" if saved_change_to_mfr?
       changes_made << "scope status" if saved_change_to_infinex_scope_status?
       
-      Rails.logger.info "DEMO: Regenerating embedding for commodity reference #{id} due to #{changes_made.join(', ')} change"
+      Rails.logger.info "🔄 [EMBEDDING] Regenerating embedding for commodity reference #{id} due to #{changes_made.join(', ')} change"
+      
+      # Regenerar embedding usando OpenAI
+      full_text = full_text_for_embedding
+      if full_text.present?
+        new_embedding = OpenaiService.get_embedding_for_text(full_text)
+        if new_embedding
+          update_column(:embedding, new_embedding)
+          Rails.logger.info "✅ [EMBEDDING] Successfully regenerated embedding for commodity reference #{id}"
+        else
+          Rails.logger.error "❌ [EMBEDDING] Failed to generate new embedding for commodity reference #{id}"
+        end
+      end
     end
   end
 end

@@ -346,7 +346,7 @@ class ExcelProcessorService
             
             if similar_commodity
               values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
-              values['scope'] = similar_commodity.infinex_scope_status == 'In Scope' ? 'In scope' : 'Out of scope'
+              values['scope'] = similar_commodity.infinex_scope_status&.downcase == 'in scope' ? 'In scope' : 'Out of scope'
               
               # Si tiene cruce en SQL Server, automáticamente In scope
               if lookup_cross_reference(values['mfg_partno']).present?
