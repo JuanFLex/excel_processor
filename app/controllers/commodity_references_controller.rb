@@ -47,7 +47,7 @@ class CommodityReferencesController < ApplicationController
     if query.present?
       commodities = CommodityReference.search(query)
                                     .limit(20)
-                                    .select(:id, :level3_desc, :infinex_scope_status)
+                                    .select(:id, :level3_desc, :level3_desc_expanded, :typical_mpn_by_manufacturer, :infinex_scope_status)
       
       results = commodities.map do |commodity|
         {
@@ -66,6 +66,6 @@ class CommodityReferencesController < ApplicationController
   private
   
   def commodity_params
-    params.require(:commodity_reference).permit(:keyword, :mfr, :infinex_scope_status)
+    params.require(:commodity_reference).permit(:keyword, :mfr, :infinex_scope_status, :level3_desc_expanded, :typical_mpn_by_manufacturer)
   end
 end

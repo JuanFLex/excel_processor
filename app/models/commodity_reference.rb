@@ -13,17 +13,54 @@ class CommodityReference < ApplicationRecord
     'Under Investigation'
   ].freeze
   
-  #Metodo para generar el texto completo para embeddings
+  #Metodo para generar el texto completo para embeddings con formato estructurado
   def full_text_for_embedding
-    parts = [
-      global_comm_code_desc,
-      level1_desc,
-      level2_desc,
-      level3_desc,
-      keyword,
-      mfr
-    ].compact.reject(&:blank?)
-    parts.join(' ')
+    # Construir jerarquía de categorías
+    category_hierarchy = [level1_desc, level2_desc].compact.reject(&:blank?).join(' > ')
+    
+    # Usar descripción expandida si está disponible, sino la normal
+    description = level3_desc_expanded.present? ? level3_desc_expanded : level3_desc
+    
+    # Construir el texto estructurado
+    embedding_parts = []
+    
+    # Commodity principal
+    if level3_desc.present?
+      commodity_name = level3_desc.gsub(/[^A-Za-z0-9\s,]/, '').gsub(/\s+/, '_').upcase
+      embedding_parts << "Commodity: #{commodity_name}"
+    end
+    
+    # Jerarquía de categorías
+    if category_hierarchy.present?
+      embedding_parts << "Category Hierarchy: #{category_hierarchy}"
+    end
+    
+    # Descripción detallada
+    if description.present?
+      embedding_parts << "Description: #{description}"
+    end
+    
+    # Palabras clave
+    if keyword.present?
+      embedding_parts << "Keywords: #{keyword}"
+    end
+    
+    # Fabricantes típicos (extraídos del campo mfr si existe)
+    if mfr.present?
+      embedding_parts << "Typical Manufacturers: #{mfr}"
+    end
+    
+    # MPNs típicos por fabricante
+    if typical_mpn_by_manufacturer.present?
+      embedding_parts << "Typical MPNs by Manufacturer: #{typical_mpn_by_manufacturer}"
+    end
+    
+    # Código global del commodity como contexto adicional
+    if global_comm_code_desc.present? && global_comm_code_desc != level3_desc
+      embedding_parts << "Global Code: #{global_comm_code_desc}"
+    end
+    
+    embedding_parts.join("\n")
   end
 
   # Método para encontrar el commodity más similar a una descripción dada
@@ -76,8 +113,8 @@ class CommodityReference < ApplicationRecord
     return all if query.blank?
     
     where(
-      "global_comm_code_desc ILIKE ? OR level1_desc ILIKE ? OR level2_desc ILIKE ? OR level3_desc ILIKE ? OR keyword ILIKE ? OR mfr ILIKE ?",
-      "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
+      "global_comm_code_desc ILIKE ? OR level1_desc ILIKE ? OR level2_desc ILIKE ? OR level3_desc ILIKE ? OR level3_desc_expanded ILIKE ? OR typical_mpn_by_manufacturer ILIKE ? OR keyword ILIKE ? OR mfr ILIKE ?",
+      "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
     )
   end
   

@@ -85,7 +85,17 @@ class ExcelProcessorService
       else
         column_mapping = OpenaiService.identify_columns(sample_rows, TARGET_COLUMNS)
         
-        # NUEVO: Detectar específicamente si hay una columna level3_desc
+        # NUEVO: Detectar específicamente columnas de jerarquía de commodities
+        level1_column = Level3DetectorService.detect_level1_column(sample_rows)
+        if level1_column
+          column_mapping['LEVEL1_DESC'] = level1_column
+        end
+        
+        level2_column = Level3DetectorService.detect_level2_column(sample_rows)
+        if level2_column
+          column_mapping['LEVEL2_DESC'] = level2_column
+        end
+        
         level3_column = Level3DetectorService.detect_level3_column(sample_rows)
         if level3_column
           column_mapping['LEVEL3_DESC'] = level3_column
@@ -635,31 +645,76 @@ class ExcelProcessorService
     @processed_file.update(result_file_path: file_path.to_s)
   end
 
-  #Metodo para construir texto completo para embedding incluyendo campos adicionales.
+  # Método para construir texto completo para embedding con formato estructurado (matching con CommodityReference)
   def build_full_text_for_embedding(row, column_mapping)
-    text_parts=[]
-
-    #Descripcion (campo principal)
+    embedding_parts = []
+    
+    # Item/Part como Commodity principal
+    item = row[column_mapping['ITEM']]&.to_s&.strip
+    mfg_partno = row[column_mapping['MFG_PARTNO']]&.to_s&.strip
+    commodity_name = item.present? ? item : mfg_partno
+    
+    if commodity_name.present?
+      # Limpiar y normalizar nombre del commodity
+      clean_name = commodity_name.gsub(/[^A-Za-z0-9\s,\-]/, '').gsub(/\s+/, '_').upcase
+      embedding_parts << "Product: #{clean_name}"
+    end
+    
+    # Descripción detallada
     if column_mapping['DESCRIPTION']
       description = row[column_mapping['DESCRIPTION']].to_s.strip
-      text_parts << description if description.present?
+      if description.present?
+        embedding_parts << "Description: #{description}"
+      end
     end
-
-    #NUEVO: Incluir GLOBAL_MFG_NAME para mejor matching con commodity references
+    
+    # Fabricante
     if column_mapping['GLOBAL_MFG_NAME']
       manufacturer = row[column_mapping['GLOBAL_MFG_NAME']].to_s.strip
-      text_parts << manufacturer if manufacturer.present?
+      if manufacturer.present?
+        embedding_parts << "Manufacturer: #{manufacturer}"
+      end
     end
-
-    #Campos adicionales para concatenar
-    additional_fields = ['GLOBAL_COMM_CODE_DESC','LEVEL1_DESC','LEVEL2_DESC','LEVEL3_DESC']
+    
+    # MPN si es diferente al item
+    if mfg_partno.present? && mfg_partno != item
+      embedding_parts << "MPN: #{mfg_partno}"
+    end
+    
+    # Campos de commodity existentes si están disponibles
+    additional_fields = ['GLOBAL_COMM_CODE_DESC', 'LEVEL1_DESC', 'LEVEL2_DESC', 'LEVEL3_DESC']
+    category_parts = []
+    
     additional_fields.each do |field|
       if column_mapping[field]
         field_value = row[column_mapping[field]].to_s.strip
-        text_parts << field_value if field_value.present?
+        if field_value.present?
+          case field
+          when 'GLOBAL_COMM_CODE_DESC'
+            embedding_parts << "Global Code: #{field_value}"
+          when 'LEVEL1_DESC', 'LEVEL2_DESC', 'LEVEL3_DESC'
+            category_parts << field_value
+          end
+        end
       end
     end
-    text_parts.join(' ')
+    
+    # Agregar jerarquía de categorías si tenemos datos
+    if category_parts.any?
+      embedding_parts << "Category Hierarchy: #{category_parts.join(' > ')}"
+    end
+    
+    # Información técnica adicional (costo, sitio, etc.)
+    technical_info = []
+    if row[column_mapping['SITE']]&.to_s&.strip&.present?
+      technical_info << "Site: #{row[column_mapping['SITE']].to_s.strip}"
+    end
+    
+    if technical_info.any?
+      embedding_parts << "Technical Info: #{technical_info.join(', ')}"
+    end
+    
+    embedding_parts.join("\n")
   end
 
   def insufficient_context(text)
