@@ -26,9 +26,11 @@ class CommodityReferenceLoader
           level1_desc: row['LEVEL1_DESC'],
           level2_desc: row['LEVEL2_DESC'],
           level3_desc: row['LEVEL3_DESC'],
+          level3_desc_expanded: row['LEVEL3_DESC_EXPANDED'],
           infinex_scope_status: row['Infinex Scope Status'],
           keyword: row['KEYWORDS'],
-          mfr: row['MFR']
+          mfr: row['MFR'],
+          typical_mpn_by_manufacturer: row['TYPICAL_MPN_BY_MANUFACTURER']
         )
         
         references << reference
