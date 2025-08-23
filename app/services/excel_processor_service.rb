@@ -676,8 +676,8 @@ class ExcelProcessorService
       end
     end
     
-    # MPN si es diferente al item
-    if mfg_partno.present? && mfg_partno != item
+    # MPN siempre debe aparecer para matching con typical_mpn_by_manufacturer
+    if mfg_partno.present?
       embedding_parts << "MPN: #{mfg_partno}"
     end
     
@@ -699,7 +699,7 @@ class ExcelProcessorService
       end
     end
     
-    # Agregar jerarquía de categorías si tenemos datos
+    # Agregar jerarquía de categorías si tenemos datos (incluso si solo es LEVEL1 o LEVEL2)
     if category_parts.any?
       embedding_parts << "Category Hierarchy: #{category_parts.join(' > ')}"
     end
