@@ -660,11 +660,12 @@ class ExcelProcessorService
       embedding_parts << "Product: #{clean_name}"
     end
     
-    # Descripción detallada
+    # Descripción detallada (expandida para mejor matching)
     if column_mapping['DESCRIPTION']
       description = row[column_mapping['DESCRIPTION']].to_s.strip
       if description.present?
-        embedding_parts << "Description: #{description}"
+        expanded_description = DescriptionExpanderService.expand(description)
+        embedding_parts << "Description: #{expanded_description}"
       end
     end
     
@@ -704,15 +705,15 @@ class ExcelProcessorService
       embedding_parts << "Category Hierarchy: #{category_parts.join(' > ')}"
     end
     
-    # Información técnica adicional (costo, sitio, etc.)
-    technical_info = []
-    if row[column_mapping['SITE']]&.to_s&.strip&.present?
-      technical_info << "Site: #{row[column_mapping['SITE']].to_s.strip}"
-    end
-    
-    if technical_info.any?
-      embedding_parts << "Technical Info: #{technical_info.join(', ')}"
-    end
+    # Información técnica removida - no aporta valor para similitud
+    # technical_info = []
+    # if row[column_mapping['SITE']]&.to_s&.strip&.present?
+    #   technical_info << "Site: #{row[column_mapping['SITE']].to_s.strip}"
+    # end
+    # 
+    # if technical_info.any?
+    #   embedding_parts << "Technical Info: #{technical_info.join(', ')}"
+    # end
     
     embedding_parts.join("\n")
   end
