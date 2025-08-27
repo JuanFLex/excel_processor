@@ -12,6 +12,8 @@ class ExcelProcessorService
     @cross_references_cache = {} # Cache para cross-references de SQL Server
     @commodity_references_cache = [] # Cache para commodity references con embeddings
     @proposal_quotes_cache = {}  # Cache para proposal quotes
+    @aml_total_demand_cache = {} # Cache para Total Demand lookups
+    @aml_min_price_cache = {} # Cache para Min Price lookups
     @existing_items_lookup = {} # NUEVO: Lookup table para remapping de líneas individuales
   end
   
@@ -21,7 +23,7 @@ class ExcelProcessorService
       @processed_file.update(status: 'processing')
       Rails.logger.info "🚀 [DEMO] Starting file processing: #{@processed_file.original_filename}"
       
-      # Pre-cargar cross-references, commodities y proposal quotes para optimizar performance
+      # Pre-cargar cross-references, commodities, proposal quotes para optimizar performance
       load_cross_references_cache
       load_commodity_references_cache
       load_proposal_quotes_cache
@@ -169,6 +171,12 @@ class ExcelProcessorService
           
           Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products successfully classified by AI"
         end
+        
+        # Cargar AML cache con los items únicos del archivo actual
+        unique_items = processed_items.map { |item| item['item'] }.compact.uniq
+        unique_item_mpn_pairs = processed_items.map { |item| [item['item'], item['mfg_partno']] }
+          .select { |item, mpn| item.present? && mpn.present? }.uniq
+        load_aml_cache_for_items(unique_items, unique_item_mpn_pairs)
         
         # Crear los items procesados en lote
         Rails.logger.info "💾 [DEMO] Saving #{processed_items.size} processed products to database..."
@@ -533,7 +541,7 @@ class ExcelProcessorService
         'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
         'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR', 'EAR Threshold Status',
-        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number'
+        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 'Total Demand', 'Min Price'
       ]
       
       Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
@@ -592,7 +600,12 @@ class ExcelProcessorService
         item_tracker.add(item.item)
         lookup_data = lookup_cross_reference(item.mfg_partno) 
 
-        proposal_data = lookup_proposal_quote(item.item)
+        proposal_data = lookup_proposal_quote(item.item, item.mfg_partno)
+        total_demand_data = lookup_total_demand(item.item)
+        min_price_data = lookup_min_price(item.item, item.mfg_partno)
+
+        # Si Previously Quoted = YES, forzar scope a "In scope"
+        final_scope = proposal_data[:previously_quoted] == 'YES' ? 'In scope' : item.scope
 
         sheet.add_row [
           item.sugar_id,  # Mapea a SFDC_QUOTE_NUMBER
@@ -606,32 +619,36 @@ class ExcelProcessorService
           item.last_po,
           item.eau,
           item.commodity,
-          item.scope,
+          final_scope,
           unique_flg, 
           lookup_data&.dig(:mpn),
           item.ear_value&.to_i,  # EAR (sin decimales)
           item.ear_threshold_status,  # EAR Threshold Status
           proposal_data[:previously_quoted],
           proposal_data[:quote_date],
-          proposal_data[:previous_sfdc_quote_number]
+          proposal_data[:previous_sfdc_quote_number],
+          total_demand_data,
+          min_price_data
           
         ]
       end
       
       # Aplicar formato a columnas específicas
-      # STD_COST (columna G/7), LAST_PURCHASE_PRICE (H/8), LAST_PO (I/9), EAR (O/15) = Currency
+      # STD_COST (columna G/7), LAST_PURCHASE_PRICE (H/8), LAST_PO (I/9), EAR (O/15), Min Price (U/21) = Currency
       sheet.col_style(6, currency_style, row_offset: 1)   # STD_COST
       sheet.col_style(7, currency_style, row_offset: 1)   # LAST_PURCHASE_PRICE  
       sheet.col_style(8, currency_style, row_offset: 1)   # LAST_PO
       sheet.col_style(14, currency_style, row_offset: 1)  # EAR
+      sheet.col_style(20, currency_style, row_offset: 1)  # Min Price
       
-      # EAU (columna J/10) = Thousands
+      # EAU (columna J/10), Total Demand (T/20) = Thousands
       sheet.col_style(9, thousands_style, row_offset: 1)  # EAU
+      sheet.col_style(19, thousands_style, row_offset: 1) # Total Demand
       
-      # Autoajustar columnas
-      sheet.auto_filter = "A1:S1"
-      # Ajustar el ancho de las columnas
-      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25, 15, 15, 20
+      # Autoajustar columnas - ahora tenemos 21 columnas (A1:U1)
+      sheet.auto_filter = "A1:U1"
+      # Ajustar el ancho de las columnas (agregamos 2 columnas más)
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25, 15, 18, 20, 15, 15
     end
     
     # Guardar el archivo
@@ -859,8 +876,19 @@ class ExcelProcessorService
     Rails.logger.info "⚡ [PERFORMANCE] Proposal quotes cache loaded: #{cache_size} entries in #{load_time}ms"
   end
 
-  def lookup_proposal_quote(item)
+  def lookup_proposal_quote(item, mfg_partno = nil)
     return nil if item.blank?
+    
+    # Si el item es igual al mfg_partno, significa que estamos usando fallback MPN
+    # En este caso, no buscar y devolver "NO" directamente
+    if mfg_partno.present? && item == mfg_partno
+      Rails.logger.debug "🚫 [PROPOSAL] Skipping lookup for MPN fallback: #{item}"
+      return {
+        previously_quoted: 'NO',
+        quote_date: nil,
+        previous_sfdc_quote_number: nil
+      }
+    end
     
     # Si existe en cache, devolver datos
     if @proposal_quotes_cache.key?(item)
@@ -873,6 +901,101 @@ class ExcelProcessorService
         previous_sfdc_quote_number: nil
       }
     end
+  end
+
+  def load_aml_cache_for_items(unique_items, unique_item_mpn_pairs)
+    Rails.logger.info "⚡ [PERFORMANCE] Loading AML cache for #{unique_items.size} unique items and #{unique_item_mpn_pairs.size} item-mpn pairs..."
+    start_time = Time.current
+    
+    @aml_total_demand_cache = {}
+    @aml_min_price_cache = {}
+    
+    if ENV['MOCK_SQL_SERVER'] == 'true'
+      # Mock data para testing
+      unique_items.each do |item|
+        mock_data = MockExcelProcessorAMLfind.lookup_total_demand_by_item(item)
+        @aml_total_demand_cache[item] = mock_data if mock_data.present?
+      end
+      
+      unique_item_mpn_pairs.each do |item, mpn|
+        mock_data = MockExcelProcessorAMLfind.lookup_min_price_by_item_mpn(item, mpn)
+        key = "#{item}|#{mpn}"
+        @aml_min_price_cache[key] = mock_data if mock_data.present?
+      end
+      
+      cache_size = @aml_total_demand_cache.size + @aml_min_price_cache.size
+    else
+      # Conexión real a SQL Server - procesar en batches de 1000
+      begin
+        total_demand_count = 0
+        min_price_count = 0
+        
+        # Procesar Total Demand en batches de 1000
+        unique_items.each_slice(1000).with_index do |batch_items, batch_index|
+          Rails.logger.info "  📦 [BATCH] Processing Total Demand batch #{batch_index + 1} (#{batch_items.size} items)..."
+          
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+          
+          result = ExcelProcessorAMLfind.connection.select_all(
+            "SELECT ITEM, TOTAL_DEMAND
+             FROM ExcelProcessorAMLfind
+             WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
+          )
+          
+          result.rows.each do |row|
+            item = row[0]
+            total_demand = row[1]
+            @aml_total_demand_cache[item] = total_demand
+            total_demand_count += 1
+          end
+        end
+        
+        # Procesar Min Price en batches de 1000
+        unique_item_mpn_pairs.each_slice(1000).with_index do |batch_pairs, batch_index|
+          Rails.logger.info "  📦 [BATCH] Processing Min Price batch #{batch_index + 1} (#{batch_pairs.size} pairs)..."
+          
+          where_conditions = batch_pairs.map do |item, mpn|
+            escaped_item = item.gsub("'", "''")
+            escaped_mpn = mpn.gsub("'", "''")
+            "(ITEM = '#{escaped_item}' AND MFG_PARTNO = '#{escaped_mpn}')"
+          end.join(' OR ')
+          
+          result = ExcelProcessorAMLfind.connection.select_all(
+            "SELECT ITEM, MFG_PARTNO, MIN_PRICE
+             FROM ExcelProcessorAMLfind
+             WHERE (#{where_conditions}) AND MIN_PRICE IS NOT NULL"
+          )
+          
+          result.rows.each do |row|
+            item = row[0]
+            mpn = row[1]
+            min_price = row[2]
+            key = "#{item}|#{mpn}"
+            @aml_min_price_cache[key] = min_price
+            min_price_count += 1
+          end
+        end
+        
+        cache_size = total_demand_count + min_price_count
+      rescue => e
+        Rails.logger.error "Error loading AML cache: #{e.message}"
+        cache_size = 0
+      end
+    end
+    
+    load_time = ((Time.current - start_time) * 1000).round(2)
+    Rails.logger.info "⚡ [PERFORMANCE] AML cache loaded: #{@aml_total_demand_cache.size} Total Demand + #{@aml_min_price_cache.size} Min Price entries in #{load_time}ms"
+  end
+
+  def lookup_total_demand(item)
+    return nil if item.blank?
+    @aml_total_demand_cache[item.strip]
+  end
+
+  def lookup_min_price(item, mpn)
+    return nil if item.blank? || mpn.blank?
+    key = "#{item.strip}|#{mpn.strip}"
+    @aml_min_price_cache[key]
   end
   
   # NUEVO: Aplicar remapping de líneas individuales usando lookup table
