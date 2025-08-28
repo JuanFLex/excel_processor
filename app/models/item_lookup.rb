@@ -6,7 +6,7 @@ class ItemLookup < ApplicationRecord
     # Configuración para SQL Server
     SQL_SERVER_CONFIG = {
       adapter: 'sqlserver',
-      host: 'K-LNT5256',
+      host: '10.5.3.241',  # TEMPORAL: usando IP mientras IT arregla DNS de K-LNT5256
       port: 15001,
       database: 'p_infinex',
       username: Rails.application.credentials.dig(:sqlserver, :username),
