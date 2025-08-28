@@ -913,12 +913,12 @@ class ExcelProcessorService
     if ENV['MOCK_SQL_SERVER'] == 'true'
       # Mock data para testing
       unique_items.each do |item|
-        mock_data = MockExcelProcessorAMLfind.lookup_total_demand_by_item(item)
+        mock_data = MockExcelProcessorAmlFind.lookup_total_demand_by_item(item)
         @aml_total_demand_cache[item] = mock_data if mock_data.present?
       end
       
       unique_item_mpn_pairs.each do |item, mpn|
-        mock_data = MockExcelProcessorAMLfind.lookup_min_price_by_item_mpn(item, mpn)
+        mock_data = MockExcelProcessorAmlFind.lookup_min_price_by_item_mpn(item, mpn)
         key = "#{item}|#{mpn}"
         @aml_min_price_cache[key] = mock_data if mock_data.present?
       end
@@ -936,7 +936,7 @@ class ExcelProcessorService
           
           quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
           
-          result = ExcelProcessorAMLfind.connection.select_all(
+          result = ExcelProcessorAmlFind.connection.select_all(
             "SELECT ITEM, TOTAL_DEMAND
              FROM ExcelProcessorAMLfind
              WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
@@ -960,7 +960,7 @@ class ExcelProcessorService
             "(ITEM = '#{escaped_item}' AND MFG_PARTNO = '#{escaped_mpn}')"
           end.join(' OR ')
           
-          result = ExcelProcessorAMLfind.connection.select_all(
+          result = ExcelProcessorAmlFind.connection.select_all(
             "SELECT ITEM, MFG_PARTNO, MIN_PRICE
              FROM ExcelProcessorAMLfind
              WHERE (#{where_conditions}) AND MIN_PRICE IS NOT NULL"

@@ -1,4 +1,4 @@
-class MockExcelProcessorAMLfind
+class MockExcelProcessorAmlFind
   # Mock data para testing
   MOCK_DATA = [
     { item: 'ITEM001', mpn: 'MPN001', total_demand: 150, min_price: 25.50, global_comm_code_desc: 'Electronic Components' },

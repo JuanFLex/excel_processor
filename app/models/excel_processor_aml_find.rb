@@ -1,4 +1,4 @@
-class ExcelProcessorAMLfind < ApplicationRecord
+class ExcelProcessorAmlFind < ApplicationRecord
   self.abstract_class = true
   self.table_name = 'ExcelProcessorAMLfind'
   self.primary_key = 'id'
