@@ -3,18 +3,10 @@ class ExcelProcessorAmlFind < ApplicationRecord
   self.table_name = 'ExcelProcessorAMLfind'
   self.primary_key = 'id'
 
-  # Configuración para SQL Server (reutilizamos la misma configuración)
-  SQL_SERVER_CONFIG = {
-    adapter: 'sqlserver',
-    host: 'K-LNT5256',
-    port: 15001,
-    database: 'p_infinex',
-    username: Rails.application.credentials.dig(:sqlserver, :username),
-    password: Rails.application.credentials.dig(:sqlserver, :password),
-    timeout: 5000
-  }.freeze
-
-  establish_connection(SQL_SERVER_CONFIG)
+  # Reutilizar la conexión de ItemLookup en lugar de crear una nueva
+  def self.connection
+    ItemLookup.connection
+  end
 
   # Método para buscar Total Demand por ITEM
   def self.lookup_total_demand_by_item(item)
