@@ -541,7 +541,7 @@ class ExcelProcessorService
         'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
         'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
         'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag', 'Potential Coreworks Cross','EAR', 'EAR Threshold Status',
-        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 'Total Demand', 'Min Price'
+        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
       ]
       
       Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
@@ -627,6 +627,7 @@ class ExcelProcessorService
           proposal_data[:previously_quoted],
           proposal_data[:quote_date],
           proposal_data[:previous_sfdc_quote_number],
+          proposal_data[:inx_mpn],
           total_demand_data,
           min_price_data
           
@@ -634,21 +635,21 @@ class ExcelProcessorService
       end
       
       # Aplicar formato a columnas específicas
-      # STD_COST (columna G/7), LAST_PURCHASE_PRICE (H/8), LAST_PO (I/9), EAR (O/15), Min Price (U/21) = Currency
+      # STD_COST (columna G/7), LAST_PURCHASE_PRICE (H/8), LAST_PO (I/9), EAR (O/15), Min Price (V/22) = Currency
       sheet.col_style(6, currency_style, row_offset: 1)   # STD_COST
       sheet.col_style(7, currency_style, row_offset: 1)   # LAST_PURCHASE_PRICE  
       sheet.col_style(8, currency_style, row_offset: 1)   # LAST_PO
       sheet.col_style(14, currency_style, row_offset: 1)  # EAR
-      sheet.col_style(20, currency_style, row_offset: 1)  # Min Price
+      sheet.col_style(21, currency_style, row_offset: 1)  # Min Price
       
-      # EAU (columna J/10), Total Demand (T/20) = Thousands
+      # EAU (columna J/10), Total Demand (U/21) = Thousands
       sheet.col_style(9, thousands_style, row_offset: 1)  # EAU
-      sheet.col_style(19, thousands_style, row_offset: 1) # Total Demand
+      sheet.col_style(20, thousands_style, row_offset: 1) # Total Demand
       
-      # Autoajustar columnas - ahora tenemos 21 columnas (A1:U1)
-      sheet.auto_filter = "A1:U1"
-      # Ajustar el ancho de las columnas (agregamos 2 columnas más)
-      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25, 15, 18, 20, 15, 15
+      # Autoajustar columnas - ahora tenemos 22 columnas (A1:V1)
+      sheet.auto_filter = "A1:V1"
+      # Ajustar el ancho de las columnas (agregamos 1 columna más: Previously Quoted INX_MPN)
+      sheet.column_widths 15, 15, 20, 20, 30, 15, 15, 15, 15, 15, 15, 15, 20, 25, 15, 25, 15, 18, 20, 18, 15, 15
     end
     
     # Guardar el archivo
@@ -843,9 +844,9 @@ class ExcelProcessorService
       begin
         # Consulta optimizada: obtener el registro más reciente por ITEM
         result = ItemLookup.connection.select_all(
-          "SELECT ITEM, LOG_DATE, SUGAR_ID
+          "SELECT ITEM, LOG_DATE, SUGAR_ID, INX_MPN
           FROM (
-            SELECT ITEM, LOG_DATE, SUGAR_ID,
+            SELECT ITEM, LOG_DATE, SUGAR_ID, INX_MPN,
                     ROW_NUMBER() OVER (PARTITION BY ITEM ORDER BY LOG_DATE DESC) as rn
             FROM INX_rptProposalDetailNEW
             WHERE ITEM IS NOT NULL
@@ -857,11 +858,13 @@ class ExcelProcessorService
           item = row[0]
           log_date = row[1]
           sugar_id = row[2]
+          inx_mpn = row[3]
           
           @proposal_quotes_cache[item] = {
             previously_quoted: 'YES',
             quote_date: log_date,
-            previous_sfdc_quote_number: sugar_id
+            previous_sfdc_quote_number: sugar_id,
+            inx_mpn: inx_mpn
           }
         end
         
@@ -898,7 +901,8 @@ class ExcelProcessorService
       {
         previously_quoted: 'NO',
         quote_date: nil,
-        previous_sfdc_quote_number: nil
+        previous_sfdc_quote_number: nil,
+        inx_mpn: nil
       }
     end
   end
