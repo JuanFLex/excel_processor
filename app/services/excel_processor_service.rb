@@ -578,6 +578,14 @@ class ExcelProcessorService
         sz: 11
       )
       
+      # Estilo especial para EAR cuando usa Total Demand (fondo amarillo)
+      ear_total_demand_style = workbook.styles.add_style(
+        format_code: '$#,##0.00',
+        font_name: "Century Gothic",
+        sz: 11,
+        bg_color: "FFFF99"  # Amarillo claro
+      )
+      
       # Definir qué columnas son del Quote form (usarán el estilo NARANJA original)
       quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'Commodity']
 
@@ -622,8 +630,8 @@ class ExcelProcessorService
           final_scope,
           unique_flg, 
           lookup_data&.dig(:mpn),
-          item.ear_value&.to_i,  # EAR (sin decimales)
-          item.ear_threshold_status,  # EAR Threshold Status
+          item.ear_value(total_demand_data)&.to_i,  # EAR (sin decimales, puede usar Total Demand)
+          item.ear_threshold_status(total_demand_data),  # EAR Threshold Status
           proposal_data[:previously_quoted],
           proposal_data[:quote_date],
           proposal_data[:previous_sfdc_quote_number],
@@ -645,6 +653,17 @@ class ExcelProcessorService
       # EAU (columna J/10), Total Demand (U/21) = Thousands
       sheet.col_style(9, thousands_style, row_offset: 1)  # EAU
       sheet.col_style(20, thousands_style, row_offset: 1) # Total Demand
+      
+      # Aplicar estilo especial a celdas EAR que usan Total Demand
+      processed_items = @processed_file.processed_items.to_a
+      processed_items.each_with_index do |item, index|
+        row_num = index + 2  # +2 porque empezamos en fila 2 (1 es header)
+        total_demand_for_item = lookup_total_demand(item.item)
+        
+        if item.ear_uses_total_demand?(total_demand_for_item)
+          sheet.rows[row_num].cells[14].style = ear_total_demand_style  # Columna EAR (O/15)
+        end
+      end
       
       # Autoajustar columnas - ahora tenemos 22 columnas (A1:V1)
       sheet.auto_filter = "A1:V1"
