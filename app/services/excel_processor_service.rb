@@ -657,7 +657,7 @@ class ExcelProcessorService
       # Aplicar estilo especial a celdas EAR que usan Total Demand
       processed_items = @processed_file.processed_items.to_a
       processed_items.each_with_index do |item, index|
-        row_num = index + 2  # +2 porque empezamos en fila 2 (1 es header)
+        row_num = index + 1  # +1 porque index es 0-based, pero rows también es 0-based (row 0 = header, row 1 = first data)
         total_demand_for_item = lookup_total_demand(item.item)
         
         if item.ear_uses_total_demand?(total_demand_for_item)
