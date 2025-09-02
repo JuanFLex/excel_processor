@@ -141,6 +141,36 @@ class FileUploadsController < ApplicationController
     
     redirect_to file_upload_path(@processed_file), notice: 'Reprocessing started with remapping. Changes will be applied shortly.'
   end
+
+  def export_preview
+    @processed_file = ProcessedFile.find(params[:id])
+    filters = JSON.parse(params[:filters]) rescue {}
+    
+    # Apply filters and count
+    items_query = apply_export_filters(@processed_file.processed_items, filters)
+    count = items_query.count
+    
+    render json: { count: count }
+  end
+
+  def export_filtered
+    @processed_file = ProcessedFile.find(params[:id])
+    filters = JSON.parse(params[:filters]) rescue {}
+    
+    # Debug: Log what filters we received
+    Rails.logger.info "🔍 [EXPORT] Received filters: #{filters.inspect}"
+    
+    # Apply filters
+    items_query = apply_export_filters(@processed_file.processed_items, filters)
+    items_count = items_query.count
+    
+    Rails.logger.info "🔍 [EXPORT] Filtered items count: #{items_count}"
+    
+    # Generate filtered Excel file using the full generator
+    filtered_file_path = generate_full_filtered_excel(items_query)
+    
+    send_excel_file(filtered_file_path, "filtered_#{@processed_file.original_filename}")
+  end
   
   private
   
@@ -176,5 +206,74 @@ class FileUploadsController < ApplicationController
     else
       raise "Unsupported file format: #{@processed_file.original_filename}"
     end
+  end
+
+  # Apply simple filters to items query
+  def apply_export_filters(items_query, filters)
+    # Scope filters - only apply if something is selected
+    if filters['scope']&.any?
+      items_query = items_query.where(scope: filters['scope'])
+    end
+    # If scope array is empty or nil, ignore this filter (show all scopes)
+    
+    # Commodity filters - only apply if something is selected  
+    if filters['commodity']&.any?
+      items_query = items_query.where(commodity: filters['commodity'])
+    end
+    # If commodity array is empty or nil, ignore this filter (show all commodities)
+    
+    # Data quality filters - basic implementation
+    if filters['data']&.any?
+      if filters['data'].include?('with_prices')
+        items_query = items_query.where('std_cost > 0 OR last_purchase_price > 0 OR last_po > 0')
+      end
+      
+      if filters['data'].include?('with_cross_refs')
+        items_query = items_query.where.not(mfg_partno: [nil, ''])
+      end
+      
+      if filters['data'].include?('with_demand')
+        items_query = items_query.where('eau > 0')
+      end
+    end
+    
+    items_query
+  end
+
+  # Generate filtered Excel with full format (same as original)
+  def generate_full_filtered_excel(items_query)
+    temp_file_path = Rails.root.join('tmp', "filtered_#{@processed_file.id}_#{Time.current.to_i}.xlsx")
+    
+    filtered_items = items_query.to_a
+    
+    package = Axlsx::Package.new
+    workbook = package.workbook
+    
+    workbook.add_worksheet(name: "Filtered Items") do |sheet|
+      # Same headers as original
+      headers = [
+        'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME',
+        'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
+        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag',
+        'Potential Coreworks Cross', 'EAR', 'EAR Threshold Status',
+        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 
+        'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
+      ]
+      sheet.add_row headers
+      
+      # Add filtered data
+      filtered_items.each do |item|
+        sheet.add_row [
+          item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
+          item.description, item.site, item.std_cost, item.last_purchase_price,
+          item.last_po, item.eau, item.commodity, item.scope, 'Unique',
+          '', item.ear_value, item.ear_threshold_status,
+          'NO', '', '', '', '', ''
+        ]
+      end
+    end
+    
+    package.serialize(temp_file_path)
+    temp_file_path
   end
 end

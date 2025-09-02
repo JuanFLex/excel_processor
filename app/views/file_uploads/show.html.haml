@@ -21,7 +21,8 @@
               %p.text-sm.text-gray-500.mt-1= "ID #{@processed_file.id}"
             .flex.gap-3
               - if @processed_file.completed? && @processed_file.result_file_path.present?
-                = link_to "Download Result", download_file_upload_path(@processed_file), class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+                %button.px-5.py-2.5.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-md.transition-colors{onclick: "document.getElementById('exportModal').classList.remove('hidden')"}
+                  Download Result
                 - quote_url = "http://10.5.3.242:3001#{file_upload_path(@processed_file)}"
                 - subject = "New Quote Request - #{@processed_file.original_filename}"
                 - body = "Hello,\r\n\r\n"
@@ -217,7 +218,92 @@
             %h3.text-sm.font-medium.text-red-900.mb-2 Processing Error
             %p.text-sm.text-red-700= @processed_file.error_message
 
+    -# Export Modal with Filters
+    #exportModal.hidden.fixed.inset-0.bg-black.bg-opacity-50.z-50
+      .flex.items-center.justify-center.min-h-screen.p-4
+        .bg-white.rounded-lg.p-6.w-full.max-w-2xl
+          .flex.justify-between.items-center.mb-6
+            %h3.text-lg.font-semibold Export Options
+            %button.text-gray-400.hover:text-gray-600.text-xl{onclick: "document.getElementById('exportModal').classList.add('hidden')"}
+              ×
+          
+          -# Filters
+          .grid.grid-cols-1.md:grid-cols-2.gap-6.mb-6
+            -# Scope Filter
+            .space-y-3
+              %h4.text-sm.font-medium.text-gray-700 Filter by Scope
+              .space-y-2
+                - ['In scope', 'Out of scope'].each do |scope|
+                  %label.flex.items-center
+                    %input.mr-2{type: "checkbox", name: "scope_filter", value: scope, checked: true}
+                    %span.text-sm= scope
+            
+            -# Commodity Filter
+            .space-y-3
+              %h4.text-sm.font-medium.text-gray-700 Filter by Commodity
+              .max-h-32.overflow-y-auto.space-y-2
+                - @processed_file.processed_items.distinct.pluck(:commodity).compact.sort.first(8).each do |commodity|
+                  %label.flex.items-center
+                    %input.mr-2{type: "checkbox", name: "commodity_filter", value: commodity, checked: true}
+                    %span.text-sm= commodity.truncate(30)
+          
+          -# Preview
+          .bg-gray-50.rounded.p-3.mb-6
+            %p.text-sm.text-gray-600#exportPreview
+              = "#{number_with_delimiter(@processed_file.unique_items_count)} items will be exported"
+          
+          .flex.gap-3
+            %button#exportFilteredBtn.flex-1.px-4.py-2.bg-blue-600.text-white.rounded.hover:bg-blue-700{onclick: "exportFiltered()"}
+              Download Filtered
+            %button.px-4.py-2.bg-gray-300.text-gray-700.rounded.hover:bg-gray-400{onclick: "document.getElementById('exportModal').classList.add('hidden')"}
+              Cancel
+
     :javascript
+      function exportFiltered() {
+        const button = document.getElementById('exportFilteredBtn');
+        const originalText = button.textContent;
+        button.textContent = 'Exporting...';
+        button.disabled = true;
+        
+        // Get selected filters
+        const scopeFilters = Array.from(document.querySelectorAll('input[name="scope_filter"]:checked')).map(cb => cb.value);
+        const commodityFilters = Array.from(document.querySelectorAll('input[name="commodity_filter"]:checked')).map(cb => cb.value);
+        
+        const filters = {
+          scope: scopeFilters,
+          commodity: commodityFilters
+        };
+        
+        // Create form and submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/file_uploads/#{@processed_file.id}/export_filtered`;
+        
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'authenticity_token';
+        csrfInput.value = document.querySelector('[name="csrf-token"]').content;
+        form.appendChild(csrfInput);
+        
+        // Add filters
+        const filtersInput = document.createElement('input');
+        filtersInput.type = 'hidden';
+        filtersInput.name = 'filters';
+        filtersInput.value = JSON.stringify(filters);
+        form.appendChild(filtersInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+        
+        // Restore button
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.disabled = false;
+          document.getElementById('exportModal').classList.add('hidden');
+        }, 2000);
+      }
+
       function downloadPDF() {
         // Show loading state
         const button = document.getElementById('downloadPdf');

@@ -13,6 +13,8 @@ Rails.application.routes.draw do
       get :status
       get :remap
       patch :reprocess
+      post :export_preview
+      post :export_filtered
     end
     
     collection do
