@@ -93,8 +93,8 @@ class OpenaiService
         end
       end
       
-      # Limpiar caché si es demasiado grande (más de 1000 entradas)
-      if @embeddings_cache.size > 1000
+      # Limpiar caché si es demasiado grande
+      if @embeddings_cache.size > ExcelProcessorConfig::EMBEDDINGS_CACHE_LIMIT
         @embeddings_cache.clear
       end
       
@@ -188,7 +188,7 @@ class OpenaiService
       
       # Truncar textos largos para reducir tokens
       truncated_text = text.to_s.strip
-      truncated_text = truncated_text[0...1000] if truncated_text.length > 1000
+      truncated_text = truncated_text[0...ExcelProcessorConfig::TEXT_TRUNCATION_LIMIT] if truncated_text.length > ExcelProcessorConfig::TEXT_TRUNCATION_LIMIT
       
       embeddings = get_embeddings([truncated_text])
       embeddings.first

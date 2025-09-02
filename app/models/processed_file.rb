@@ -100,7 +100,7 @@ class ProcessedFile < ApplicationRecord
       end
       
       # Meeting threshold  
-      if item.ear_value && item.ear_value >= 100_000
+      if item.ear_value && item.ear_value >= ExcelProcessorConfig::EAR_THRESHOLD
         categories[:meeting_threshold] << item
         
         # Crosses threshold (subset de meeting_threshold)
@@ -170,7 +170,7 @@ class ProcessedFile < ApplicationRecord
       return Set.new if valid_partnos.empty?
       
       # NUEVO: Procesar en chunks para evitar timeouts con archivos grandes
-      chunk_size = 1000 # Máximo 1000 partnos por consulta
+      chunk_size = ExcelProcessorConfig::BATCH_SIZE # Máximo partnos por consulta
       all_results = Set.new
       total_chunks = (valid_partnos.size / chunk_size.to_f).ceil
       

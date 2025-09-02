@@ -55,6 +55,6 @@ class ProcessedItem < ApplicationRecord
     value = ear_value(total_demand, min_price)
     return "Insufficient data" if value.nil?
     
-    value >= 100_000 ? "Compliant" : "Non-Compliant"
+    value >= ExcelProcessorConfig::EAR_THRESHOLD ? "Compliant" : "Non-Compliant"
   end
 end

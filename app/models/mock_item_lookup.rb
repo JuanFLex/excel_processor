@@ -78,4 +78,33 @@ class MockItemLookup
     Rails.logger.error "🎭 [MOCK SQL] Error in mock lookup: #{e.message}"
     nil
   end
+  
+  # Mock data para AML lookups (Total Demand y Min Price)
+  def self.mock_aml_data
+    {
+      total_demand: {
+        'PLO-1209841-03-FG' => 572000,
+        'MCR01MZPF1500' => 286000,
+        'CRCW0402150RFKED' => 286000,
+        'RK73H1ETTP2491F' => 1573000,
+        'PKG-001' => 50000,
+        'HW-001' => 25000,
+        'BOLT-123' => 15000,
+        'MOTOR-123' => 5000,
+        'RELAY-456' => 12000
+      },
+      
+      min_price: {
+        'PLO-1209841-03-FG' => 0.05,
+        'MCR01MZPF1500' => 0.08,
+        'CRCW0402150RFKED' => 0.06,
+        'RK73H1ETTP2491F' => 0.12,
+        'PKG-001' => 15.50,
+        'HW-001' => 2.75,
+        'BOLT-123' => 1.25,
+        'MOTOR-123' => 85.00,
+        'RELAY-456' => 12.50
+      }
+    }
+  end
 end

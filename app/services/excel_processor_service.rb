@@ -1,9 +1,4 @@
 class ExcelProcessorService
-  TARGET_COLUMNS = [
-    'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
-    'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-    'LAST_PO', 'EAU'
-  ]
   
   def initialize(processed_file)
     @processed_file = processed_file
@@ -21,7 +16,6 @@ class ExcelProcessorService
     begin
       # Actualizar estado
       @processed_file.update(status: 'processing')
-      Rails.logger.info "🚀 [DEMO] Starting file processing: #{@processed_file.original_filename}"
       
       # Pre-cargar cross-references, commodities, proposal quotes para optimizar performance
       load_cross_references_cache
@@ -62,30 +56,25 @@ class ExcelProcessorService
       end
       
       # Leer el archivo Excel
-      Rails.logger.info "📖 [DEMO] Reading Excel file and analyzing structure..."
       spreadsheet = open_spreadsheet(file)
       header = spreadsheet.row(1)
       total_rows = spreadsheet.last_row - 1
       
-      Rails.logger.info "📊 [DEMO] File processed: #{total_rows} data rows detected"
-      Rails.logger.info "📋 [DEMO] Columns found: #{header.join(', ')}"
       
       # Obtener una muestra de filas para identificación de columnas
-      Rails.logger.info "🤖 [DEMO] Sending data sample to OpenAI for column identification..."
       sample_rows = []
       (2..6).each do |i|
         row = Hash[[header, spreadsheet.row(i)].transpose]
         sample_rows << row if i <= spreadsheet.last_row
       end
       
-      Rails.logger.info "🔍 [DEMO] OpenAI is analyzing #{sample_rows.size} sample rows..."
       
       # Usar OpenAI para identificar las columnas estándar (solo si no es remapeo manual)
       if manual_remap && manual_remap[:column_mapping].present?
         Rails.logger.info "🔄 [DEMO] Using manual column mapping from remap..."
         column_mapping = manual_remap[:column_mapping]
       else
-        column_mapping = OpenaiService.identify_columns(sample_rows, TARGET_COLUMNS)
+        column_mapping = OpenaiService.identify_columns(sample_rows, ExcelProcessorConfig::TARGET_COLUMNS)
         
         # NUEVO: Detectar específicamente columnas de jerarquía de commodities
         level1_column = Level3DetectorService.detect_level1_column(sample_rows)
@@ -134,7 +123,6 @@ class ExcelProcessorService
       # Guardar el mapeo de columnas
       @processed_file.update(column_mapping: column_mapping)
       
-      Rails.logger.info "💾 [DEMO] Preparing to process #{total_rows} rows with #{has_commodity_column ? 'commodity-direct' : 'full'} AI analysis..."
       
       # Preparar el procesamiento por lotes - reducir para archivos grandes
       batch_size = total_rows > 50000 ? 25 : 100
@@ -179,21 +167,13 @@ class ExcelProcessorService
         load_aml_cache_for_items(unique_items, unique_item_mpn_pairs)
         
         # Crear los items procesados en lote
-        Rails.logger.info "💾 [DEMO] Saving #{processed_items.size} processed products to database..."
         insert_items_batch(processed_items)
       end
       
-      Rails.logger.info "🎨 [DEMO] Generating standardized Excel file with all classifications..."
       
       # Generar el archivo Excel de salida
       generate_output_file
       
-      Rails.logger.info "🎉 [DEMO] Processing completed successfully!"
-      Rails.logger.info "📈 [DEMO] Final statistics:"
-      Rails.logger.info "   📊 Total products processed: #{@processed_file.processed_items.count}"
-      Rails.logger.info "   🎯 Products classified: #{@processed_file.processed_items.where.not(commodity: 'Unknown').count}"
-      Rails.logger.info "   ✅ In scope: #{@processed_file.processed_items.where(scope: 'In scope').count}"
-      Rails.logger.info "   ❌ Out of scope: #{@processed_file.processed_items.where(scope: 'Out of scope').count}"
       
       # Actualizar estado
       @processed_file.update(status: 'completed', processed_at: Time.current)
@@ -250,7 +230,6 @@ class ExcelProcessorService
         end
         
         # Aplicar remapping de líneas individuales (NUEVO)
-        Rails.logger.info "🔧 [DEBUG] About to apply line remapping (level3) - manual_remap present: #{manual_remap.present?}"
         values = apply_line_remapping(values, manual_remap, index)
         
         # LEGACY: Aplicar cambios masivos de commodity (para retrocompatibilidad)
@@ -262,14 +241,12 @@ class ExcelProcessorService
             values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
             
             if index % 10 == 0
-              Rails.logger.info "   🔄 [LEGACY REMAP] '#{original_commodity}' → '#{new_commodity}'"
             end
           end
         end
         
         # Log ocasional para mostrar procesamiento
         if index % 20 == 0
-          Rails.logger.info "   ✨ [DEMO] '#{existing_commodity}' → Scope: #{values['scope']}"
         end
       else
         values['commodity'] = 'Unknown'
@@ -375,7 +352,6 @@ class ExcelProcessorService
               
               # Log ocasional para mostrar clasificaciones exitosas
               if index % 10 == 0  # Cada 10 items
-                Rails.logger.info "   ✨ [DEMO] '#{full_text[0..50]}...' → Classified as: #{values['commodity']}"
               end
             else
               values['commodity'] = 'Unknown'
@@ -415,7 +391,6 @@ class ExcelProcessorService
           values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
           
           if index % 10 == 0
-            Rails.logger.info "   🔄 [LEGACY REMAP] '#{original_commodity}' → '#{new_commodity}'"
           end
         end
       end
@@ -446,7 +421,7 @@ class ExcelProcessorService
   def extract_values(row, column_mapping)
     values = {}
     
-    TARGET_COLUMNS.each do |target_col|
+    ExcelProcessorConfig::TARGET_COLUMNS.each do |target_col|
       source_col = column_mapping[target_col]
       values[target_col.downcase] = source_col ? row[source_col] : nil
     end
@@ -528,7 +503,6 @@ class ExcelProcessorService
   end
   
   def generate_output_file
-    Rails.logger.info "📝 [DEMO] Creating Excel workbook with standardized format..."
     
     # Crear un nuevo archivo Excel
     package = Axlsx::Package.new
@@ -544,7 +518,6 @@ class ExcelProcessorService
         'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
       ]
       
-      Rails.logger.info "📋 [DEMO] Adding #{headers.size} standardized columns to Excel file..."
       
       # Estilo para encabezados
       header_style = workbook.styles.add_style(
@@ -597,7 +570,6 @@ class ExcelProcessorService
       # Agregar fila con estilos específicos por columna
       sheet.add_row headers, style: header_styles
       
-      Rails.logger.info "💾 [DEMO] Writing #{@processed_file.processed_items.count} classified products to Excel..."
       
       item_tracker = Set.new # Para rastrear items únicos
 
@@ -676,8 +648,6 @@ class ExcelProcessorService
     file_path = Rails.root.join('storage', "processed_#{@processed_file.id}_#{Time.current.to_i}.xlsx")
     package.serialize(file_path)
     
-    Rails.logger.info "✅ [DEMO] Excel file successfully generated: #{File.basename(file_path)}"
-    Rails.logger.info "📁 [DEMO] File size: #{(File.size(file_path) / 1024.0).round(2)} KB"
     
     # Guardar la ruta del archivo en el modelo
     @processed_file.update(result_file_path: file_path.to_s)
@@ -800,7 +770,7 @@ class ExcelProcessorService
       end
     end
     
-    load_time = ((Time.current - start_time) * 1000).round(2)
+    load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     mfg_cache_size = @manufacturer_cache.size
     Rails.logger.info "⚡ [PERFORMANCE] Caches loaded: #{cache_size} cross-refs + #{mfg_cache_size} manufacturers in #{load_time}ms"
   end
@@ -820,8 +790,8 @@ class ExcelProcessorService
     @commodity_references_cache = CommodityReference.where.not(embedding: nil).to_a
     
     cache_size = @commodity_references_cache.size
-    memory_mb = (cache_size * 6.3 / 1000).round(1) # Estimación de memoria en MB
-    load_time = ((Time.current - start_time) * 1000).round(2)
+    memory_mb = (cache_size * ExcelProcessorConfig::MEMORY_ESTIMATION_FACTOR / ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(1) # Estimación de memoria en MB
+    load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     
     Rails.logger.info "⚡ [PERFORMANCE] Commodity cache loaded: #{cache_size} entries (~#{memory_mb} MB) in #{load_time}ms"
   end
@@ -895,7 +865,7 @@ class ExcelProcessorService
       end
     end
     
-    load_time = ((Time.current - start_time) * 1000).round(2)
+    load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     Rails.logger.info "⚡ [PERFORMANCE] Proposal quotes cache loaded: #{cache_size} entries in #{load_time}ms"
   end
 
@@ -927,24 +897,29 @@ class ExcelProcessorService
     end
   end
 
-  def load_aml_cache_for_items(unique_items, unique_item_mpn_pairs)
-    Rails.logger.info "⚡ [PERFORMANCE] Loading AML cache for #{unique_items.size} unique items and #{unique_item_mpn_pairs.size} item-mpn pairs..."
+  def load_aml_cache_for_items(unique_items, unique_item_mpn_pairs = [])
+    Rails.logger.info "⚡ [PERFORMANCE] Loading AML cache for #{unique_items.size} unique items..."
     start_time = Time.current
     
     @aml_total_demand_cache = {}
     @aml_min_price_cache = {}
     
     if ENV['MOCK_SQL_SERVER'] == 'true'
-      # Mock data para testing - no cargar nada real
-      cache_size = 0
+      # Mock data para testing usando MockItemLookup
+      Rails.logger.info "🎭 [MOCK SQL] Loading mock AML data..."
+      
+      mock_data = MockItemLookup.mock_aml_data
+      @aml_total_demand_cache = mock_data[:total_demand]
+      @aml_min_price_cache = mock_data[:min_price]
+      cache_size = @aml_total_demand_cache.size + @aml_min_price_cache.size
     else
       # Conexión real a SQL Server - procesar en batches de 1000
       begin
         total_demand_count = 0
         min_price_count = 0
         
-        # Procesar Total Demand en batches de 1000
-        unique_items.each_slice(1000).with_index do |batch_items, batch_index|
+        # Procesar Total Demand en batches
+        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_items, batch_index|
           Rails.logger.info "  📦 [BATCH] Processing Total Demand batch #{batch_index + 1} (#{batch_items.size} items)..."
           
           quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
@@ -963,25 +938,21 @@ class ExcelProcessorService
           end
         end
         
-        # Procesar Min Price en batches de 1000
-        unique_item_mpn_pairs.each_slice(1000).with_index do |batch_pairs, batch_index|
-          Rails.logger.info "  📦 [BATCH] Processing Min Price batch #{batch_index + 1} (#{batch_pairs.size} pairs)..."
+        # Procesar Min Price en batches (ahora solo usa items, no mpn)
+        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_items, batch_index|
+          Rails.logger.info "  📦 [BATCH] Processing Min Price batch #{batch_index + 1} (#{batch_items.size} items)..."
           
-          where_conditions = batch_pairs.map do |item, mpn|
-            escaped_item = item.gsub("'", "''")
-            escaped_mpn = mpn.gsub("'", "''")
-            "(ITEM = '#{escaped_item}' AND MFG_PARTNO = '#{escaped_mpn}')"
-          end.join(' OR ')
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
           
           result = ItemLookup.connection.select_all(
-            "SELECT ITEM, MFG_PARTNO, MIN_PRICE
+            "SELECT ITEM, MIN_PRICE
              FROM ExcelProcessorAMLfind
-             WHERE (#{where_conditions}) AND MIN_PRICE IS NOT NULL"
+             WHERE ITEM IN (#{quoted_items}) AND MIN_PRICE IS NOT NULL"
           )
           
           result.rows.each do |row|
             item = row[0]
-            min_price = row[2]
+            min_price = row[1]
             @aml_min_price_cache[item] = min_price
             min_price_count += 1
           end
@@ -994,7 +965,7 @@ class ExcelProcessorService
       end
     end
     
-    load_time = ((Time.current - start_time) * 1000).round(2)
+    load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     Rails.logger.info "⚡ [PERFORMANCE] AML cache loaded: #{@aml_total_demand_cache.size} Total Demand + #{@aml_min_price_cache.size} Min Price entries in #{load_time}ms"
   end
 
@@ -1013,7 +984,6 @@ class ExcelProcessorService
     return values unless manual_remap && manual_remap[:line_remapping] && @existing_items_lookup
     
     # DEBUG: Log lo que tenemos
-    Rails.logger.info "🔍 [DEBUG] Checking remapping for index #{current_index}"
     
     # Estrategia: Buscar por item + descripción usando lookup table
     item_identifier = values['item'] || values['mfg_partno'] || values['description']
@@ -1025,7 +995,6 @@ class ExcelProcessorService
       "#{values['item']}|#{values['description']&.strip}"
     ].compact
     
-    Rails.logger.info "🔍 [DEBUG] Searching lookup table with keys: #{search_keys.inspect}"
     
     # Buscar en lookup table
     matching_items = []
@@ -1036,7 +1005,6 @@ class ExcelProcessorService
     end
     
     matching_items.uniq! { |item| item[:id] }
-    Rails.logger.info "🔍 [DEBUG] Found #{matching_items.size} matching items in lookup table for '#{item_identifier}'"
     
     matching_items.each do |existing_item|
       remap_key = "#{existing_item[:id]}_commodity"
