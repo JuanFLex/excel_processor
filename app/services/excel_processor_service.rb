@@ -610,7 +610,7 @@ class ExcelProcessorService
 
         proposal_data = lookup_proposal_quote(item.item, item.mfg_partno)
         total_demand_data = lookup_total_demand(item.item)
-        min_price_data = lookup_min_price(item.item, item.mfg_partno)
+        min_price_data = lookup_min_price(item.item)
 
         # Si Previously Quoted = YES, forzar scope a "In scope"
         final_scope = proposal_data[:previously_quoted] == 'YES' ? 'In scope' : item.scope
@@ -630,8 +630,8 @@ class ExcelProcessorService
           final_scope,
           unique_flg, 
           lookup_data&.dig(:mpn),
-          item.ear_value(total_demand_data)&.to_i,  # EAR (sin decimales, puede usar Total Demand)
-          item.ear_threshold_status(total_demand_data),  # EAR Threshold Status
+          item.ear_value(total_demand_data, min_price_data),  # EAR (con decimales, puede usar fallbacks)
+          item.ear_threshold_status(total_demand_data, min_price_data),  # EAR Threshold Status
           proposal_data[:previously_quoted],
           proposal_data[:quote_date],
           proposal_data[:previous_sfdc_quote_number],
@@ -654,13 +654,14 @@ class ExcelProcessorService
       sheet.col_style(9, thousands_style, row_offset: 1)  # EAU
       sheet.col_style(20, thousands_style, row_offset: 1) # Total Demand
       
-      # Aplicar estilo especial a celdas EAR que usan Total Demand
+      # Aplicar estilo especial a celdas EAR que usan fallbacks (Total Demand o Min Price)
       processed_items = @processed_file.processed_items.to_a
       processed_items.each_with_index do |item, index|
         row_num = index + 1  # +1 porque index es 0-based, pero rows también es 0-based (row 0 = header, row 1 = first data)
         total_demand_for_item = lookup_total_demand(item.item)
+        min_price_for_item = lookup_min_price(item.item)
         
-        if item.ear_uses_total_demand?(total_demand_for_item)
+        if item.ear_uses_fallback?(total_demand_for_item, min_price_for_item)
           sheet.rows[row_num].cells[14].style = ear_total_demand_style  # Columna EAR (O/15)
         end
       end
@@ -980,10 +981,8 @@ class ExcelProcessorService
           
           result.rows.each do |row|
             item = row[0]
-            mpn = row[1]
             min_price = row[2]
-            key = "#{item}|#{mpn}"
-            @aml_min_price_cache[key] = min_price
+            @aml_min_price_cache[item] = min_price
             min_price_count += 1
           end
         end
@@ -1004,10 +1003,9 @@ class ExcelProcessorService
     @aml_total_demand_cache[item.strip]
   end
 
-  def lookup_min_price(item, mpn)
-    return nil if item.blank? || mpn.blank?
-    key = "#{item.strip}|#{mpn.strip}"
-    @aml_min_price_cache[key]
+  def lookup_min_price(item)
+    return nil if item.blank?
+    @aml_min_price_cache[item.strip]
   end
   
   # NUEVO: Aplicar remapping de líneas individuales usando lookup table
