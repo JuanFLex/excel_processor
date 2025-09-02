@@ -1,6 +1,6 @@
 class FileUploadsController < ApplicationController
   def index
-    @processed_files = ProcessedFile.order(created_at: :desc).limit(10)
+    @processed_files = ProcessedFile.order(created_at: :desc).page(params[:page]).per(10)
   end
   
   def new

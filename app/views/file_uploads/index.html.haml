@@ -58,6 +58,11 @@
           = link_to "Upload Your First File", new_file_upload_path, 
             class: "inline-block px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
 
+      / Pagination
+      - if @processed_files.respond_to?(:current_page) && @processed_files.total_pages > 1
+        .mt-8.flex.justify-center
+          = paginate @processed_files
+
     / Disclaimer at bottom
     .mt-12.text-center.border-t.border-gray-200.pt-6
       %p.text-xs.text-gray-400.italic Disclaimer: This content was generated with the help of AI and may contain inaccuracies. Please review and validate before use.
