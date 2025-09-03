@@ -898,16 +898,11 @@ class ExcelProcessorService
   end
 
   def load_aml_cache_for_items(unique_items, unique_item_mpn_pairs = [])
-    Rails.logger.info "⚡ [PERFORMANCE] AML cache DISABLED for demo - skipping..."
+    Rails.logger.info "⚡ [PERFORMANCE] Loading AML cache for #{unique_items.size} unique items..."
     start_time = Time.current
     
     @aml_total_demand_cache = {}
     @aml_min_price_cache = {}
-    
-    # DEMO: AML lookups temporarily disabled
-    load_time = 0
-    Rails.logger.info "⚡ [PERFORMANCE] AML cache skipped for demo in #{load_time}ms"
-    return
     
     if ENV['MOCK_SQL_SERVER'] == 'true'
       # Mock data para testing usando MockItemLookup
