@@ -15,6 +15,8 @@ Rails.application.routes.draw do
       patch :reprocess
       post :export_preview
       post :export_filtered
+      patch :approve_mapping
+      patch :update_mapping
     end
     
     collection do

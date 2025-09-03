@@ -1,0 +1,170 @@
+.bg-blue-50.border.border-blue-200.rounded-lg.p-6.mb-8
+  .flex.items-center.justify-between.mb-4
+    %h2.text-lg.font-medium.text-blue-900 Column Mapping Preview
+    .flex.items-center.space-x-4
+      %div#timerDisplay.text-sm.text-blue-700
+        Auto-approving in 
+        %span#countdown.font-semibold 10
+        seconds
+      %button#pauseTimer.px-3.py-1.bg-blue-100.hover:bg-blue-200.text-blue-700.text-sm.rounded.transition-colors{onclick: "pauseTimer()"}
+        Pause
+  
+  %p.text-sm.text-blue-700.mb-4 
+    Review the detected column mappings below. You can make corrections or let it auto-approve in 
+    %span#countdownText 10
+    seconds.
+  
+  - if @processed_file.column_mapping&.any?
+    .bg-white.border.border-blue-200.rounded.overflow-hidden
+      %table.min-w-full
+        %thead.bg-blue-50
+          %tr
+            %th.px-4.py-3.text-left.text-xs.font-medium.text-blue-700.uppercase.tracking-wider Target Field
+            %th.px-4.py-3.text-left.text-xs.font-medium.text-blue-700.uppercase.tracking-wider Detected Column
+            %th.px-4.py-3.text-center.text-xs.font-medium.text-blue-700.uppercase.tracking-wider Action
+        %tbody.divide-y.divide-blue-100
+          - @processed_file.column_mapping.each do |target, source|
+            %tr
+              %td.px-4.py-3.text-sm.font-medium.text-gray-900= target
+              %td.px-4.py-3.text-sm.text-gray-600
+                %input.w-full.px-2.py-1.border.border-gray-300.rounded.text-sm{type: "text", value: source, name: "mapping[#{target}]", onchange: "handleMappingChange()"}
+              %td.px-4.py-3.text-center
+                - if source
+                  %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded.text-green-700.bg-green-100 Mapped
+                - else
+                  %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded.text-red-700.bg-red-100 Missing
+  
+  .flex.justify-end.space-x-3.mt-4
+    %button#approveBtn.px-4.py-2.bg-blue-600.hover:bg-blue-700.text-white.text-sm.font-medium.rounded.transition-colors{onclick: "approveMapping()"}
+      Start Processing
+    %button.px-4.py-2.bg-gray-300.hover:bg-gray-400.text-gray-700.text-sm.font-medium.rounded.transition-colors{onclick: "updateMapping()"}
+      Save Changes
+
+:javascript
+  let countdownTimer;
+  let timeLeft = 10;
+  let isPaused = false;
+  let userMadeChanges = false;
+
+  function startCountdown() {
+    countdownTimer = setInterval(function() {
+      if (!isPaused && !userMadeChanges) {
+        timeLeft--;
+        document.getElementById('countdown').textContent = timeLeft;
+        document.getElementById('countdownText').textContent = timeLeft;
+        
+        if (timeLeft <= 0) {
+          clearInterval(countdownTimer);
+          approveMapping();
+        }
+      }
+    }, 1000);
+  }
+
+  function pauseTimer() {
+    isPaused = !isPaused;
+    const button = document.getElementById('pauseTimer');
+    const display = document.getElementById('timerDisplay');
+    
+    if (isPaused) {
+      button.textContent = 'Resume';
+      button.classList.remove('bg-blue-100', 'hover:bg-blue-200', 'text-blue-700');
+      button.classList.add('bg-orange-100', 'hover:bg-orange-200', 'text-orange-700');
+      display.innerHTML = 'Timer paused at <span id="countdown" class="font-semibold">' + timeLeft + '</span> seconds';
+    } else {
+      button.textContent = 'Pause';
+      button.classList.remove('bg-orange-100', 'hover:bg-orange-200', 'text-orange-700');
+      button.classList.add('bg-blue-100', 'hover:bg-blue-200', 'text-blue-700');
+      display.innerHTML = 'Auto-approving in <span id="countdown" class="font-semibold">' + timeLeft + '</span> seconds';
+    }
+  }
+
+  function handleMappingChange() {
+    userMadeChanges = true;
+    const display = document.getElementById('timerDisplay');
+    const button = document.getElementById('pauseTimer');
+    
+    // Hide timer and pause button when user makes changes
+    display.innerHTML = '<span class="text-orange-700 font-semibold">Changes detected - timer stopped</span>';
+    button.style.display = 'none';
+    
+    clearInterval(countdownTimer);
+  }
+
+  function approveMapping() {
+    const button = document.getElementById('approveBtn');
+    button.textContent = 'Processing...';
+    button.disabled = true;
+    
+    // Submit form to approve mapping
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/file_uploads/#{@processed_file.id}/approve_mapping`;
+    
+    // Add method override for PATCH
+    const methodInput = document.createElement('input');
+    methodInput.type = 'hidden';
+    methodInput.name = '_method';
+    methodInput.value = 'PATCH';
+    form.appendChild(methodInput);
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'authenticity_token';
+    csrfInput.value = document.querySelector('[name="csrf-token"]').content;
+    form.appendChild(csrfInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  function updateMapping() {
+    const button = event.target;
+    button.textContent = 'Saving...';
+    button.disabled = true;
+    
+    // Collect all mapping inputs
+    const mappings = {};
+    document.querySelectorAll('input[name^="mapping["]').forEach(input => {
+      const field = input.name.match(/mapping\\[(.+)\\]/)[1];
+      mappings[field] = input.value;
+    });
+    
+    // Submit AJAX request to update mapping
+    fetch(`/file_uploads/#{@processed_file.id}/update_mapping`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+      },
+      body: JSON.stringify({ mapping: mappings })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Reset timer state
+        userMadeChanges = false;
+        timeLeft = 10;
+        const display = document.getElementById('timerDisplay');
+        const pauseBtn = document.getElementById('pauseTimer');
+        
+        display.innerHTML = 'Auto-approving in <span id="countdown" class="font-semibold">10</span> seconds';
+        pauseBtn.style.display = 'inline-block';
+        pauseBtn.textContent = 'Pause';
+        
+        startCountdown();
+      }
+      button.textContent = 'Save Changes';
+      button.disabled = false;
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      button.textContent = 'Save Changes';
+      button.disabled = false;
+    });
+  }
+
+  // Start the countdown when page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    startCountdown();
+  });

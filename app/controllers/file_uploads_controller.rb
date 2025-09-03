@@ -22,13 +22,13 @@ class FileUploadsController < ApplicationController
       uploaded_file.rewind
       File.open(temp_path, 'wb') { |f| f.write(uploaded_file.read) }
       
-      # Actualizar el estado a "encolado"
-      @processed_file.update(status: 'queued')
+      # Actualizar el estado a "column preview" 
+      @processed_file.update(status: 'column_preview')
       
-      # Encolar el trabajo con Active Job
-      ExcelProcessorJob.perform_later(@processed_file, temp_path.to_s)
+      # Generar column mapping con OpenAI (proceso rápido)
+      generate_column_mapping_preview(@processed_file, temp_path.to_s)
       
-      redirect_to file_upload_path(@processed_file), notice: 'File uploaded successfully. Processing will begin shortly.'
+      redirect_to file_upload_path(@processed_file), notice: 'File uploaded successfully. Please review the column mapping.'
     else
       render :new, status: :unprocessable_entity
     end
@@ -171,6 +171,41 @@ class FileUploadsController < ApplicationController
     
     send_excel_file(filtered_file_path, "filtered_#{@processed_file.original_filename}")
   end
+
+  def approve_mapping
+    @processed_file = ProcessedFile.find(params[:id])
+    
+    if @processed_file.column_preview?
+      # Start full processing
+      @processed_file.update(status: 'queued')
+      
+      # Get the temp file path using existing pattern
+      temp_path_pattern = Rails.root.join('tmp', "upload_#{@processed_file.id}_*")
+      actual_temp_path = Dir.glob(temp_path_pattern.to_s).first
+      
+      if actual_temp_path
+        ExcelProcessorJob.perform_later(@processed_file, actual_temp_path)
+        redirect_to file_upload_path(@processed_file), notice: 'Processing started!'
+      else
+        redirect_to file_upload_path(@processed_file), alert: 'File not found. Please upload again.'
+      end
+    else
+      redirect_to file_upload_path(@processed_file), alert: 'File is not in preview state.'
+    end
+  end
+
+  def update_mapping
+    @processed_file = ProcessedFile.find(params[:id])
+    
+    if @processed_file.column_preview? && params[:column_mapping].present?
+      # Update the column mapping
+      @processed_file.update(column_mapping: params[:column_mapping])
+      
+      render json: { success: true, message: 'Mapping updated' }
+    else
+      render json: { success: false, message: 'Invalid request' }
+    end
+  end
   
   private
   
@@ -275,5 +310,58 @@ class FileUploadsController < ApplicationController
     
     package.serialize(temp_file_path)
     temp_file_path
+  end
+
+  # Generate column mapping preview (fast process)
+  def generate_column_mapping_preview(processed_file, temp_path)
+    begin
+      # Read Excel file
+      spreadsheet = open_spreadsheet_from_temp_path(temp_path)
+      header = spreadsheet.row(1)
+      
+      # Get sample rows for OpenAI
+      sample_rows = []
+      (2..6).each do |i|
+        row = Hash[header.zip(spreadsheet.row(i))]
+        sample_rows << row if i <= spreadsheet.last_row
+      end
+      
+      # Use OpenAI to identify columns (fast)
+      column_mapping = OpenaiService.identify_columns(sample_rows, ExcelProcessorConfig::TARGET_COLUMNS)
+      
+      # Detect commodity columns
+      %w[LEVEL1_DESC LEVEL2_DESC LEVEL3_DESC GLOBAL_COMM_CODE_DESC].each do |column_type|
+        detected_column = detect_commodity_column_simple(sample_rows, column_type)
+        column_mapping[column_type] = detected_column if detected_column
+      end
+      
+      # Save mapping
+      processed_file.update(column_mapping: column_mapping)
+      
+    rescue => e
+      Rails.logger.error "Error generating column mapping preview: #{e.message}"
+      processed_file.update(status: 'failed', error_message: e.message)
+    end
+  end
+
+  # Simple helper for temp file reading
+  def open_spreadsheet_from_temp_path(temp_path)
+    case File.extname(temp_path).downcase
+    when '.csv'
+      Roo::CSV.new(temp_path)
+    when '.xls'
+      Roo::Excel.new(temp_path)
+    when '.xlsx'
+      Roo::Excelx.new(temp_path)
+    else
+      raise "Unsupported file format"
+    end
+  end
+
+  # Simple commodity column detection
+  def detect_commodity_column_simple(sample_rows, column_type)
+    return nil if sample_rows.empty?
+    
+    sample_rows.first&.keys&.find { |header| header.to_s.upcase.include?(column_type.gsub('_DESC', '')) }
   end
 end

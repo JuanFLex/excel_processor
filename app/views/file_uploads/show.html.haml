@@ -57,6 +57,10 @@
               %p.text-sm.font-medium.text-gray-900
                 = value.is_a?(Time) ? value.strftime("%b %d · %H:%M") : (value || '—')
 
+        -# Column Preview Section (rendered as partial)
+        - if @processed_file.column_preview?
+          = render 'column_preview'
+
         -# Main Content
         .grid.grid-cols-1.lg:grid-cols-2.gap-8
           -# Scope Analysis Section
@@ -361,6 +365,7 @@
           });
         }, 1000); // Wait 1 second for charts to render
       }
+
 
     -# Auto-reload for processing files
     - if @processed_file.status == 'queued' || @processed_file.processing?
