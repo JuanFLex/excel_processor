@@ -32,7 +32,9 @@ class ItemLookup < ApplicationRecord
                 ROW_NUMBER() OVER(PARTITION BY SUPPLIER_PN, CROSS_REF_MFG ORDER BY INFINEX_COST ASC) AS RN,
                 *
             from INX_dataLabCrosses 
-            WHERE CROSS_REF_MPN = '#{mfg_partno}'
+            WHERE CROSS_REF_MPN = '#{mfg_partno}' 
+                AND INFINEX_MPN IS NOT NULL 
+                AND LTRIM(RTRIM(INFINEX_MPN)) <> ''
             ) QUERY
             WHERE RN = 1"
       )
