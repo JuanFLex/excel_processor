@@ -7,7 +7,7 @@ Rails.application.routes.draw do
     resources :users
   end
   
-  resources :file_uploads, only: [:index, :new, :create, :show] do
+  resources :file_uploads, only: [:index, :new, :create, :show, :destroy] do
     member do
       get :download
       get :status

@@ -1,4 +1,5 @@
 class FileUploadsController < ApplicationController
+  before_action :require_admin_for_delete, only: [:destroy]
   def index
     @processed_files = ProcessedFile.order(created_at: :desc).page(params[:page]).per(10)
   end
@@ -206,6 +207,26 @@ class FileUploadsController < ApplicationController
       render json: { success: false, message: 'Invalid request' }
     end
   end
+
+  def destroy
+    @processed_file = ProcessedFile.find(params[:id])
+    filename = @processed_file.original_filename
+    
+    begin
+      # Delete associated file if exists
+      if @processed_file.result_file_path.present? && File.exist?(@processed_file.result_file_path)
+        File.delete(@processed_file.result_file_path)
+      end
+      
+      # Delete the processed file record (cascades to processed_items)
+      @processed_file.destroy
+      
+      redirect_to file_uploads_path, notice: "File '#{filename}' and all its data have been deleted successfully."
+    rescue => e
+      Rails.logger.error "Error deleting file #{@processed_file.id}: #{e.message}"
+      redirect_to file_uploads_path, alert: "Error deleting file: #{e.message}"
+    end
+  end
   
   private
   
@@ -363,5 +384,11 @@ class FileUploadsController < ApplicationController
     return nil if sample_rows.empty?
     
     sample_rows.first&.keys&.find { |header| header.to_s.upcase.include?(column_type.gsub('_DESC', '')) }
+  end
+
+  def require_admin_for_delete
+    unless current_user&.admin?
+      redirect_to file_uploads_path, alert: 'Only administrators can delete files.'
+    end
   end
 end
