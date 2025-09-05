@@ -57,4 +57,34 @@ class ProcessedItem < ApplicationRecord
     
     value >= ExcelProcessorConfig::EAR_THRESHOLD ? "Compliant" : "Non-Compliant"
   end
+
+  # Recrear el texto exacto que se usó para generar el embedding
+  def recreate_embedding_text
+    embedding_parts = []
+    
+    # Product (usando item primero, si no existe usar mfg_partno)
+    commodity_name = item.present? ? item : mfg_partno
+    if commodity_name.present?
+      clean_name = commodity_name.gsub(/[^A-Za-z0-9\s,\-]/, '').gsub(/\s+/, '_').upcase
+      embedding_parts << "Product: #{clean_name}"
+    end
+    
+    # Description (expandida)
+    if description.present?
+      expanded_description = DescriptionExpanderService.expand(description)
+      embedding_parts << "Description: #{expanded_description}"
+    end
+    
+    # Manufacturer
+    if global_mfg_name.present?
+      embedding_parts << "Manufacturer: #{global_mfg_name}"
+    end
+    
+    # MPN (para matching con typical_mpn_by_manufacturer de las referencias)
+    if mfg_partno.present?
+      embedding_parts << "MPN: #{mfg_partno}"
+    end
+    
+    embedding_parts.join("\n")
+  end
 end

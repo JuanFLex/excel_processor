@@ -69,5 +69,44 @@ class MockOpenaiService
       embeddings = get_embeddings([text])
       embeddings.first
     end
+    
+    def get_completion(prompt, max_tokens = 1500)
+      Rails.logger.info "🎭 [MOCK OPENAI] Generating mock completion..."
+      
+      # Mock analysis basado en patrones comunes
+      if prompt.include?('analyze') && prompt.include?('commodity')
+        return generate_mock_commodity_analysis(prompt)
+      end
+      
+      "🎭 MOCK ANALYSIS: This is a simulated response. In production, this would contain AI-generated analysis based on the provided data."
+    end
+    
+    private
+    
+    def generate_mock_commodity_analysis(prompt)
+      <<~ANALYSIS
+        ## MOCK COMMODITY ANALYSIS REPORT
+
+        **Current Assignment Analysis:**
+        Based on the component details, the current commodity assignment appears to be reasonable but could potentially be optimized.
+
+        **Key Observations:**
+        1. **Package Size Indicators**: The MPN suggests a specific package size (e.g., 0805, 0402, 1206)
+        2. **Component Type**: Clear indicators in the description point to the component family
+        3. **Manufacturer Match**: The manufacturer is recognized and matches typical suppliers for this commodity
+
+        **Recommendations:**
+        1. **Keyword Enhancement**: Consider adding package size keywords (e.g., "0805", "1206") to improve matching precision
+        2. **MPN Pattern Analysis**: The part number pattern suggests this component would benefit from more specific classification
+        3. **Similarity Score**: Current similarity could be improved by enhancing reference commodity descriptions
+
+        **Suggested Actions:**
+        - Add relevant keywords to the top-matching commodity reference
+        - Review similar components for pattern consistency
+        - Consider creating more specific commodity subcategories if needed
+
+        *Note: This is a mock analysis for development. Production version would provide detailed AI-powered insights.*
+      ANALYSIS
+    end
   end
 end

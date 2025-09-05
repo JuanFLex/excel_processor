@@ -1,4 +1,5 @@
 class CommodityReference < ApplicationRecord
+  include SimilarityCalculable
   validates :level3_desc, presence: true
   
   # Callback para regenerar embedding cuando se actualiza

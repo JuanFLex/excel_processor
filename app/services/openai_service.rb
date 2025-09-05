@@ -194,6 +194,32 @@ class OpenaiService
       embeddings.first
     end
     
+    def get_completion(prompt, max_tokens = 1500)
+      # Switch a mock si está configurado
+      if ENV['MOCK_OPENAI'] == 'true'
+        return MockOpenaiService.get_completion(prompt, max_tokens)
+      end
+      
+      client = OpenAI::Client.new
+      
+      response = client.chat(
+        parameters: {
+          model: COMPLETION_MODEL,
+          messages: [
+            { role: "system", content: "You are an expert in electronic components classification and analysis. You provide detailed, accurate analysis with specific recommendations." },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: max_tokens,
+          temperature: 0.1  # Low temperature for consistent analysis
+        }
+      )
+      
+      response.dig("choices", 0, "message", "content")
+    rescue => e
+      Rails.logger.error("OpenAI completion error: #{e.message}")
+      "Error analyzing: #{e.message}"
+    end
+    
     private
     
     # Buscar embedding existente en base de datos
