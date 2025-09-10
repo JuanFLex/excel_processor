@@ -246,7 +246,7 @@
             .space-y-3
               %h4.text-sm.font-medium.text-gray-700 Filter by Commodity
               .max-h-32.overflow-y-auto.space-y-2
-                - @processed_file.processed_items.distinct.pluck(:commodity).compact.sort.first(8).each do |commodity|
+                - @processed_file.processed_items.distinct.pluck(:commodity).compact.sort.each do |commodity|
                   %label.flex.items-center
                     %input.mr-2{type: "checkbox", name: "commodity_filter", value: commodity, checked: true}
                     %span.text-sm= commodity.truncate(30)

@@ -315,7 +315,36 @@ class FileUploadsController < ApplicationController
         'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 
         'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
       ]
-      sheet.add_row headers
+      
+      # Define styles matching original Excel format
+      header_style = workbook.styles.add_style(
+        bg_color: "FA4616",  # Orange for quote form columns
+        fg_color: "FFFFFF",
+        b: true,
+        alignment: { horizontal: :center },
+        font_name: "Century Gothic",
+        sz: 11
+      )
+
+      auxiliary_style = workbook.styles.add_style(
+        bg_color: "5498c6",  # Blue for auxiliary columns
+        fg_color: "FFFFFF", 
+        b: true,
+        alignment: { horizontal: :center },
+        font_name: "Century Gothic",
+        sz: 11
+      )
+      
+      # Define which columns are from Quote form (use ORANGE)
+      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'Commodity']
+      
+      # Create array of styles based on column name
+      header_styles = headers.map do |header|
+        quote_form_columns.include?(header) ? header_style : auxiliary_style
+      end
+
+      # Add header with column-specific styling
+      sheet.add_row headers, style: header_styles
       
       # Add filtered data
       filtered_items.each do |item|
