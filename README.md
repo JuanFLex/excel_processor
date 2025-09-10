@@ -19,6 +19,11 @@ Transform unstructured Excel files into standardized formats with automatic colu
 - **Remapping capability** - Adjust column mappings and commodity classifications
 - **Asynchronous processing** - Upload and get notified when complete
 - **Real-time status** - Watch processing progress
+- **Export functionality** - Download processed files in multiple formats
+- **PDF reports** - Generate detailed analysis reports
+- **Admin controls** - File deletion and user management
+- **Cross-reference lookup** - Integration with external SQL Server database
+- **Pagination** - Handle large file lists efficiently
 
 ### Supported formats
 
@@ -33,7 +38,8 @@ Transform unstructured Excel files into standardized formats with automatic colu
 ### Prerequisites
 
 - Ruby 3.2+
-- PostgreSQL
+- PostgreSQL (for main database)
+- SQL Server (for cross-reference lookups, optional with mock mode)
 - OpenAI API key
 
 ### Installation
@@ -44,12 +50,25 @@ git clone
 cd excel-processor
 bundle install
 
-# Database
+# Database setup
 rails db:create db:migrate
 
-# OpenAI credentials
+# Configure credentials (required)
 rails credentials:edit
-# Add: openai: { api_key: your_key_here }
+# Add:
+# openai:
+#   api_key: your_openai_api_key
+# sqlserver:
+#   username: your_sql_username
+#   password: your_sql_password
+
+# Create database config (not tracked in git)
+cp config/database.yml.example config/database.yml
+# Edit config/database.yml with your database settings
+
+# Optional: Enable mock mode for development
+echo "MOCK_OPENAI=true" >> .env
+echo "MOCK_SQL_SERVER=true" >> .env
 
 # Start server
 rails server
@@ -66,9 +85,10 @@ rails server
    - Upload your Excel/CSV file
    - Wait for processing (runs in background)
 
-3. **Download standardized file**
-   - File includes all original data mapped to standard columns
-   - Plus AI-generated `Commodity` and `Scope` columns
+3. **Download results**
+   - **Excel file**: Standardized data with AI-generated `Commodity` and `Scope` columns
+   - **PDF report**: Detailed analysis and classification summary
+   - **Export options**: Multiple format support for downstream processing
 
 ---
 
@@ -124,18 +144,38 @@ Fix incorrect mappings without re-uploading:
 
 ## Configuration
 
-### OpenAI setup
+### Environment setup
 
 ```yaml
-# config/credentials.yml.enc
+# config/credentials.yml.enc (encrypted, safe to commit)
 openai:
   api_key: your_openai_api_key
+sqlserver:
+  username: your_sql_username  
+  password: your_sql_password
+```
+
+```yaml
+# config/database.yml (NOT tracked in git)
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  username: your_pg_username
+  password: your_pg_password
+  host: localhost
+```
+
+```bash
+# .env (optional, for development)
+MOCK_OPENAI=true          # Use mock OpenAI responses
+MOCK_SQL_SERVER=true      # Use mock SQL Server data
+OPENAI_SSL_BYPASS=true    # Skip SSL verification if needed
 ```
 
 ### Models used
 
 - `text-embedding-3-small` - For commodity similarity matching
-- `gpt-4-turbo` - For column identification
+- `gpt-4-turbo` - For column identification and analysis
 
 ### Performance tuning
 
