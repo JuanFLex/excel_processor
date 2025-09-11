@@ -1,3 +1,5 @@
+require 'set'
+
 class FileUploadsController < ApplicationController
   before_action :require_admin_for_delete, only: [:destroy]
   def index
@@ -346,14 +348,43 @@ class FileUploadsController < ApplicationController
       # Add header with column-specific styling
       sheet.add_row headers, style: header_styles
       
-      # Add filtered data
+      # Add filtered data with real SQL lookups (same as main Excel generation)
+      item_tracker = Set.new
       filtered_items.each do |item|
+        # Track unique items (same logic as main generation)
+        unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
+        item_tracker.add(item.item)
+        
+        # Lookup real data from SQL Server (same as main generation)
+        total_demand_data = nil
+        min_price_data = nil
+        cross_ref_mpn = nil
+        
+        begin
+          if ENV['MOCK_SQL_SERVER'] != 'true'
+            # Total Demand lookup
+            demand_result = ItemLookup.connection.select_all("SELECT TOTAL_DEMAND FROM ExcelProcessorAMLfind WHERE ITEM = '#{item.item}' AND TOTAL_DEMAND IS NOT NULL")
+            total_demand_data = demand_result.rows.first&.first
+            
+            # Min Price lookup  
+            price_result = ItemLookup.connection.select_all("SELECT MIN_PRICE FROM ExcelProcessorAMLfind WHERE ITEM = '#{item.item}' AND MIN_PRICE IS NOT NULL")
+            min_price_data = price_result.rows.first&.first
+            
+            # Cross reference lookup
+            cross_ref_result = ItemLookup.connection.select_all("SELECT INFINEX_MPN FROM INX_dataLabCrosses WHERE CROSS_REF_MPN = '#{item.mfg_partno}' AND INFINEX_MPN IS NOT NULL")
+            cross_ref_mpn = cross_ref_result.rows.first&.first
+          end
+        rescue => e
+          Rails.logger.error "Error looking up SQL data for #{item.item}: #{e.message}"
+        end
+        
         sheet.add_row [
           item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
           item.description, item.site, item.std_cost, item.last_purchase_price,
-          item.last_po, item.eau, item.commodity, item.scope, 'Unique',
-          '', item.ear_value, item.ear_threshold_status,
-          'NO', '', '', '', '', ''
+          item.last_po, item.eau, item.commodity, item.scope, unique_flg,
+          cross_ref_mpn, item.ear_value(total_demand_data, min_price_data), item.ear_threshold_status(total_demand_data, min_price_data),
+          'NO', '', '', '', 
+          total_demand_data, min_price_data
         ]
       end
     end

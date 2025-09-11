@@ -584,13 +584,6 @@ class ExcelProcessorService
         total_demand_data = lookup_total_demand(item.item)
         min_price_data = lookup_min_price(item.item)
         
-        # LOG PARA DEBUG: Mostrar Total Demand assignment
-        if total_demand_data.present?
-          Rails.logger.info "🔍 [TOTAL_DEMAND] #{item.item}: #{total_demand_data} assigned"
-        else
-          Rails.logger.info "❌ [TOTAL_DEMAND] #{item.item}: NO DATA FOUND in cache"
-        end
-
         # Si Previously Quoted = YES, forzar scope a "In scope"
         final_scope = proposal_data[:previously_quoted] == 'YES' ? 'In scope' : item.scope
 
@@ -975,12 +968,6 @@ class ExcelProcessorService
     load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     Rails.logger.info "⚡ [PERFORMANCE] AML cache loaded: #{@aml_total_demand_cache.size} Total Demand + #{@aml_min_price_cache.size} Min Price entries in #{load_time}ms"
     
-    # LOG PARA DEBUG: Mostrar algunos ejemplos del cache cargado
-    if @aml_total_demand_cache.any?
-      Rails.logger.info "🔍 [CACHE_SAMPLE] Total Demand examples: #{@aml_total_demand_cache.first(3).to_h}"
-    else
-      Rails.logger.warn "⚠️  [CACHE_EMPTY] No Total Demand data loaded in cache!"
-    end
   end
 
   def lookup_total_demand(item)
@@ -993,11 +980,9 @@ class ExcelProcessorService
     
     begin
       result = ItemLookup.connection.select_all("SELECT TOTAL_DEMAND FROM ExcelProcessorAMLfind WHERE ITEM = '#{item.strip}' AND TOTAL_DEMAND IS NOT NULL")
-      demand = result.rows.first&.first
-      Rails.logger.info "🔍 [DIRECT_LOOKUP] #{item}: Total_Demand=#{demand || 'NULL'}" if demand
-      return demand
+      return result.rows.first&.first
     rescue => e
-      Rails.logger.error "❌ [SQL_LOOKUP] #{item}: #{e.message}"
+      Rails.logger.error "Error looking up Total Demand for #{item}: #{e.message}"
       return nil
     end
   end
