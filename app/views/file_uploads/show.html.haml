@@ -309,52 +309,59 @@
       }
 
       function downloadPDF() {
-        // Show loading state
         const button = document.getElementById('downloadPdf');
         const originalText = button.innerHTML;
         button.innerHTML = 'Generating PDF...';
         button.disabled = true;
         
-        // Wait for charts to fully render
         setTimeout(() => {
           const element = document.getElementById('reportContent');
           const filename = `#{@processed_file.original_filename.gsub(/\.[^.]*$/, '')}_report.pdf`;
           
           html2canvas(element, {
-            height: element.scrollHeight,
-            width: element.scrollWidth,
-            scale: 2, // Higher quality
+            // Reduce quality settings
+            scale: 1.5,          // Reduced from 2 to 1.5
             useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff'
+            logging: false,      // Disable logging
+            imageTimeout: 0,     // No timeout
+            backgroundColor: '#ffffff',
+            // Add compression settings
+            onclone: function(clonedDoc) {
+              // Remove unnecessary elements from clone
+              const clone = clonedDoc.getElementById('reportContent');
+              clone.querySelectorAll('.hover\\:bg-gray-50').forEach(el => {
+                el.classList.remove('hover:bg-gray-50');
+              });
+            }
           }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
+            const imgData = canvas.toDataURL('image/jpeg', 0.7); // Changed from PNG to JPEG with 0.7 quality
             const { jsPDF } = window.jspdf;
             
-            // Calculate PDF dimensions
-            const imgWidth = 210; // A4 width in mm
-            const pageHeight = 295; // A4 height in mm
+            // Calculate PDF dimensions with compression
+            const imgWidth = 210; // A4 width
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
             
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            let position = 0;
+            const pdf = new jsPDF({
+              orientation: 'p',
+              unit: 'mm',
+              format: 'a4',
+              compress: true,    // Enable PDF compression
+              precision: 2       // Reduce coordinate precision
+            });
             
-            // Add first page
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+            // Add image with compression
+            pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
             
-            // Add additional pages if content is long
-            while (heightLeft >= 0) {
-              position = heightLeft - imgHeight;
-              pdf.addPage();
-              pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-              heightLeft -= pageHeight;
+            // Split into pages if needed
+            const pagesCount = Math.ceil(imgHeight / 295); // 295 is A4 height
+            if (pagesCount > 1) {
+              for (let i = 1; i < pagesCount; i++) {
+                pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, -(i * 295), imgWidth, imgHeight, undefined, 'FAST');
+              }
             }
             
             pdf.save(filename);
-            
-            // Restore button
             button.innerHTML = originalText;
             button.disabled = false;
           }).catch(error => {
@@ -363,7 +370,7 @@
             button.innerHTML = originalText;
             button.disabled = false;
           });
-        }, 1000); // Wait 1 second for charts to render
+        }, 500); // Reduced timeout from 1000 to 500ms
       }
 
 
