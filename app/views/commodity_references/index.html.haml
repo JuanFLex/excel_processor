@@ -54,11 +54,11 @@
                   %td.px-6.py-4
                     .text-sm.text-gray-600= commodity.level3_desc
                   %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.level3_desc_expanded.present? ? commodity.level3_desc_expanded : '-'
+                    .text-sm.text-gray-600{title: commodity.level3_desc_expanded}= commodity.level3_desc_expanded.present? ? commodity.level3_desc_expanded.truncate(80) : '-'
                   %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.typical_mpn_by_manufacturer.present? ? commodity.typical_mpn_by_manufacturer : '-'
+                    .text-sm.text-gray-600{title: commodity.typical_mpn_by_manufacturer}= commodity.typical_mpn_by_manufacturer.present? ? commodity.typical_mpn_by_manufacturer.truncate(50) : '-'
                   %td.px-6.py-4
-                    .text-sm.text-gray-600= commodity.keyword.present? ? commodity.keyword : '-'
+                    .text-sm.text-gray-600{title: commodity.keyword}= commodity.keyword.present? ? commodity.keyword.truncate(60) : '-'
                   %td.px-6.py-4
                     .text-sm.text-gray-600= commodity.mfr.present? ? commodity.mfr : '-'
                   %td.px-6.py-4.text-center
