@@ -220,6 +220,56 @@ class OpenaiService
       "Error analyzing: #{e.message}"
     end
     
+    def get_completion_json(prompt, max_tokens = 1500)
+      # Switch a mock si está configurado
+      if ENV['MOCK_OPENAI'] == 'true'
+        return MockOpenaiService.get_completion_json(prompt, max_tokens)
+      end
+      
+      client = OpenAI::Client.new
+      
+      response = client.chat(
+        parameters: {
+          model: COMPLETION_MODEL,
+          messages: [
+            { role: "system", content: "You are an expert in electronic components classification and analysis. You provide structured JSON responses for automated processing." },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: max_tokens,
+          temperature: 0.1,  # Low temperature for consistent analysis
+          response_format: { type: "json_object" }
+        }
+      )
+      
+      content = response.dig("choices", 0, "message", "content")
+      
+      begin
+        JSON.parse(content)
+      rescue JSON::ParserError => e
+        Rails.logger.error("Error parsing JSON response: #{e.message}")
+        {
+          "should_correct" => false,
+          "confidence_level" => "low",
+          "current_assignment_correct" => true,
+          "recommended_commodity" => nil,
+          "recommended_scope" => nil,
+          "reasoning" => "Error parsing AI response",
+          "evidence" => "JSON parse error: #{e.message}"
+        }
+      end
+    rescue => e
+      Rails.logger.error("OpenAI completion JSON error: #{e.message}")
+      {
+        "should_correct" => false,
+        "confidence_level" => "low",
+        "current_assignment_correct" => true,
+        "recommended_commodity" => nil,
+        "recommended_scope" => nil,
+        "reasoning" => "API error occurred",
+        "evidence" => "Error: #{e.message}"
+      }
+    end
+    
     private
     
     # Buscar embedding existente en base de datos

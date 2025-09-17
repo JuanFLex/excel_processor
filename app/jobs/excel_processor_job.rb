@@ -42,6 +42,12 @@ class ExcelProcessorJob < ApplicationJob
         processor = ExcelProcessorService.new(processed_file)
         processor.process_upload(uploaded_file, manual_remap)
         
+        # NUEVO: Ejecutar análisis automático de IA para top EAR items después de remapeo
+        if processed_file.status == 'completed'
+          Rails.logger.info "🤖 [AUTO-AI] Scheduling automatic AI analysis for top EAR items after remap"
+          TopEarAnalyzerJob.perform_later(processed_file.id)
+        end
+        
       ensure
         temp_file.close
         temp_file.unlink
@@ -72,6 +78,12 @@ class ExcelProcessorJob < ApplicationJob
         # Procesar el archivo
         processor = ExcelProcessorService.new(processed_file)
         processor.process_upload(uploaded_file)
+        
+        # NUEVO: Ejecutar análisis automático de IA para top EAR items
+        if processed_file.status == 'completed'
+          Rails.logger.info "🤖 [AUTO-AI] Scheduling automatic AI analysis for top EAR items"
+          TopEarAnalyzerJob.perform_later(processed_file.id)
+        end
         
         # Limpiar después de procesar
         FileUtils.rm(file_path) if File.exist?(file_path)

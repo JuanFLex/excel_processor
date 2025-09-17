@@ -26,4 +26,7 @@ class ExcelProcessorConfig
   # OpenAI service constants
   EMBEDDINGS_CACHE_LIMIT = 1000 # Maximum cache entries before cleanup
   TEXT_TRUNCATION_LIMIT = 1000 # Maximum characters for OpenAI API calls
+  
+  # Automatic AI analysis constants
+  TOP_EAR_ANALYSIS_COUNT = 1 # Number of top EAR items to analyze automatically
 end
