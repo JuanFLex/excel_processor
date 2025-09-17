@@ -19,9 +19,6 @@ Rails.application.routes.draw do
       patch :update_mapping
     end
     
-    collection do
-      get :download_sample
-    end
   end
   
   resources :commodity_references, only: [:index, :edit, :update] do

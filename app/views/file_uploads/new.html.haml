@@ -67,15 +67,6 @@
         = form.submit "Start Processing", 
           class: "px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer"
 
-    / Sample File
-    .mt-12.border-t.border-gray-200.pt-8
-      .flex.items-start.justify-between
-        %div
-          %h3.text-sm.font-medium.text-gray-900.mb-1 Need a sample file?
-          %p.text-sm.text-gray-600 Download our sample Excel file to test the system
-        = link_to "Download Sample", download_sample_file_uploads_path, 
-          class: "text-sm text-green-600 hover:text-green-700 font-medium"
-
 :javascript
   function updateFileName(input) {
       const fileName = input.files[0]?.name || 'No file selected';

@@ -63,15 +63,6 @@ class FileUploadsController < ApplicationController
     render json: { status: @processed_file.status }
   end
   
-  def download_sample
-    sample_file_path = Rails.root.join('db', 'sample_data', 'sample_inventory.xlsx')
-    
-    if File.exist?(sample_file_path)
-      send_excel_file(sample_file_path, "sample_inventory.xlsx")
-    else
-      redirect_to new_file_upload_path, alert: 'The sample file is not available.'
-    end
-  end
   
   # NUEVO: Vista de remapeo
   def remap
