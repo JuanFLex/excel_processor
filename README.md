@@ -16,6 +16,7 @@ Transform unstructured Excel files into standardized formats with automatic colu
 - **Automatic column detection** - Uses OpenAI to map your columns to standard fields
 - **Smart commodity classification** - AI embeddings classify products into categories  
 - **Level3 optimization** - If your file already has LEVEL3_DESC, only determines scope (saves tokens)
+- **Automatic AI correction** - Analyzes and corrects commodity assignments for top EAR items
 - **Remapping capability** - Adjust column mappings and commodity classifications
 - **Asynchronous processing** - Upload and get notified when complete
 - **Real-time status** - Watch processing progress
@@ -120,14 +121,51 @@ Every processed file gets these columns:
    - If file has `LEVEL3_DESC` → use existing commodities, determine scope only
    - If no `LEVEL3_DESC` → generate embeddings and find similar commodities
 3. **Scope determination**: Match against reference database
-4. **Excel generation**: Create standardized output file
+4. **Automatic correction**: AI analyzes top EAR items and corrects commodity assignments with high confidence
+5. **Excel generation**: Create standardized output file
 
 ### AI optimization
 
 - **Token savings**: Files with existing LEVEL3_DESC skip embedding generation
 - **Batch processing**: Reduces API calls by processing items in groups
 - **Embedding cache**: Avoids regenerating embeddings for similar descriptions
+- **Automatic correction**: Improves accuracy by analyzing highest revenue items
+- **Conservative corrections**: Only applies changes with high AI confidence
 - **Smart fallbacks**: Handles unknown commodities gracefully
+
+---
+
+## Automatic AI Correction
+
+The system automatically analyzes and corrects commodity assignments for items with the highest business impact:
+
+### How it works
+
+1. **Target identification**: After processing, identifies top items by Estimated Annual Revenue (EAR)
+2. **AI analysis**: Uses same detailed analysis as manual review but returns structured JSON
+3. **Conservative correction**: Only applies changes when AI has high confidence
+4. **Background processing**: Runs automatically without user intervention
+
+### Configuration
+
+```ruby
+# app/models/excel_processor_config.rb
+TOP_EAR_ANALYSIS_COUNT = 1  # Number of top EAR items to analyze
+```
+
+### Correction criteria
+
+- **High confidence required**: Only applies corrections with "high" confidence level
+- **Evidence-based**: Analyzes MPN patterns, descriptions, and manufacturer data
+- **Similarity matching**: Compares against top 5 most similar commodities
+- **Conservative approach**: Prefers false negatives over false positives
+
+### Logging
+
+All automatic corrections are logged with details:
+- Original vs. new commodity assignment
+- AI confidence level and reasoning
+- Evidence supporting the decision
 
 ---
 
@@ -233,11 +271,13 @@ Tests simulate OpenAI responses to avoid API costs and ensure reliability.
 - **Character limits** - Truncate long descriptions to save tokens
 - **LEVEL3_DESC detection** - Skip AI classification when exact commodity exists
 - **Scope-only processing** - When commodities exist, only determine scope
+- **Automatic correction** - Target highest EAR items for maximum business impact
+- **High confidence threshold** - Only apply corrections with high AI certainty
 
 ### File processing flow
 
 ```
-Upload → Active Storage → Background Job → OpenAI API → Database → Excel Generation
+Upload → Active Storage → Background Job → OpenAI API → Database → Auto-Correction → Excel Generation
 ```
 
 ### Data storage

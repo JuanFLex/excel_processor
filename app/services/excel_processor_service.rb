@@ -438,6 +438,13 @@ class ExcelProcessorService
     values['last_po'] = clean_monetary_value(values['last_po'])
     values['eau'] = values['eau'].to_i if values['eau'].present?
     
+    # NUEVO: Aplicar multiplicador de volumen si está configurado
+    if @processed_file.volume_multiplier.present? && @processed_file.volume_multiplier > 1 && values['eau'].present?
+      original_eau = values['eau']
+      values['eau'] = values['eau'] * @processed_file.volume_multiplier
+      Rails.logger.info "📈 [VOLUME] EAU multiplied for item #{values['item']}: #{original_eau} × #{@processed_file.volume_multiplier} = #{values['eau']}"
+    end
+    
     # Estandarizar nombre de manufacturero usando cache
     values['global_mfg_name'] = @manufacturer_cache[values['global_mfg_name']] || values['global_mfg_name']
     

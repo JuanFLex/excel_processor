@@ -13,6 +13,11 @@ class FileUploadsController < ApplicationController
   def create
     @processed_file = ProcessedFile.new(original_filename: file_params[:file].original_filename, status: 'pending')
     
+    # Guardar configuración del multiplicador de volumen
+    if file_params[:volume_multiplier_enabled] == '1' && file_params[:volume_multiplier].present?
+      @processed_file.volume_multiplier = file_params[:volume_multiplier].to_i
+    end
+    
     if @processed_file.save
       # ACTUALIZADO: Guardar archivo original en Active Storage
       uploaded_file = file_params[:file]
@@ -233,7 +238,7 @@ class FileUploadsController < ApplicationController
   private
   
   def file_params
-    params.require(:file_upload).permit(:file)
+    params.require(:file_upload).permit(:file, :volume_multiplier_enabled, :volume_multiplier)
   end
   
   # NUEVO: Parámetros para remapeo
