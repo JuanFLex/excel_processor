@@ -406,11 +406,16 @@ class ExcelProcessorService
   end
   
   def open_spreadsheet(file)
-    case File.extname(file.original_filename)
+    case File.extname(file.original_filename).downcase
     when '.csv'
       Roo::CSV.new(file.path)
     when '.xls'
-      Roo::Excel.new(file.path)
+      begin
+        Roo::Excel.new(file.path)
+      rescue => e
+        Rails.logger.error "Error opening XLS file: #{e.message}"
+        raise "Error reading XLS file: #{e.message}. Please ensure the file is a valid Excel .xls file. Consider converting to .xlsx format if issues persist."
+      end
     when '.xlsx'
       Roo::Excelx.new(file.path)
     else

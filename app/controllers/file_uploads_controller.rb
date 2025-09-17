@@ -263,7 +263,12 @@ class FileUploadsController < ApplicationController
     when '.csv'
       Roo::CSV.new(temp_file.path)
     when '.xls'
-      Roo::Excel.new(temp_file.path)
+      begin
+        Roo::Excel.new(temp_file.path)
+      rescue => e
+        Rails.logger.error "Error opening XLS file in remap: #{e.message}"
+        raise "Error reading XLS file: #{e.message}. Please ensure the file is valid."
+      end
     when '.xlsx'
       Roo::Excelx.new(temp_file.path)
     else
@@ -436,7 +441,12 @@ class FileUploadsController < ApplicationController
     when '.csv'
       Roo::CSV.new(temp_path)
     when '.xls'
-      Roo::Excel.new(temp_path)
+      begin
+        Roo::Excel.new(temp_path)
+      rescue => e
+        Rails.logger.error "Error opening XLS file from temp path: #{e.message}"
+        raise "Error reading XLS file: #{e.message}. Please ensure the file is valid."
+      end
     when '.xlsx'
       Roo::Excelx.new(temp_path)
     else

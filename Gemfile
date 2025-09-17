@@ -27,6 +27,7 @@ gem 'chartkick'
 
 # Excel processing
 gem "roo", "~> 2.10.0"          # Para leer archivos Excel
+gem "roo-xls", "~> 1.2"         # Para leer archivos XLS antiguos (.xls)
 gem "caxlsx", "~> 4.0"           # Para crear archivos Excel
 gem "caxlsx_rails", "~> 0.6"     # Integración de axlsx con Rails
 
