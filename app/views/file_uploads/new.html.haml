@@ -8,15 +8,55 @@
 
     / Upload Form
     = form_with(url: file_uploads_path, method: :post, local: true, multipart: true, scope: :file_upload, class: "space-y-8") do |form|
-      / Upload Area
-      .border-2.border-dashed.border-gray-300.rounded-lg.p-8.text-center.hover:border-gray-400.transition-colors
+
+      / Processing Configuration - Prominent Position
+      .bg-gradient-to-r.from-blue-50.to-indigo-50.border.border-blue-200.rounded-xl.p-6.shadow-sm
+        .mb-4
+          %h2.text-lg.font-semibold.text-gray-900.mb-1 Processing Configuration
+          %p.text-sm.text-gray-600 Configure how your data will be processed
+
+        / Volume Multiplier Toggle Card
+        .bg-white.border.border-gray-200.rounded-lg.p-4.transition-all.duration-200.hover:shadow-md{"id" => "volume-config-card"}
+          .flex.items-start.space-x-4
+            .flex-shrink-0.mt-1
+              = form.check_box :volume_multiplier_enabled, id: "volume-multiplier-checkbox", class: "h-5 w-5 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleVolumeMultiplier(this)"
+            .flex-1.min-w-0
+              .flex.items-center.justify-between
+                %div
+                  = form.label :volume_multiplier_enabled, "Volume Scaling", class: "text-base font-medium text-gray-900 cursor-pointer", for: "volume-multiplier-checkbox"
+                  %p.text-sm.text-gray-600.mt-1 Apply scaling factor to EAU (Estimated Annual Usage) values for volume scenarios
+                %div#volume-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
+                  Disabled
+
+          / Volume Input - Enhanced
+          #volume-multiplier-settings.hidden.mt-4.pt-4.border-t.border-gray-100
+            .bg-gray-50.rounded-lg.p-4
+              .flex.items-center.space-x-4
+                %div
+                  = form.label :volume_multiplier, "Scaling Factor", class: "block text-sm font-medium text-gray-700 mb-2"
+                  .relative
+                    = form.number_field :volume_multiplier, min: 1, max: 1000, value: 1, class: "w-32 pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium", placeholder: "1"
+                    .absolute.inset-y-0.right-0.flex.items-center.pr-3.pointer-events-none
+                      %span.text-gray-400.text-sm ×
+                .flex-1
+                  %div.text-xs.text-gray-600.mb-1 Effect Preview
+                  %div.bg-white.rounded.border.p-2.text-xs.font-mono
+                    %span.text-gray-500 EAU: 100 →
+                    %span#preview-result.font-semibold.text-blue-600.ml-1 100
+
+              .mt-3.p-3.bg-blue-50.rounded-lg
+                %p.text-xs.font-medium.text-blue-800.mb-1 Volume Scaling Impact
+                %p.text-xs.text-blue-700 This multiplier affects both EAU values and downstream EAR (Extended Annual Requirements) calculations
+
+      / Upload Area - Refined
+      .border-2.border-dashed.border-gray-300.rounded-xl.p-8.text-center.hover:border-gray-400.transition-all.duration-200.hover:bg-gray-50.group
         = form.file_field :file, class: "sr-only", id: "file-input", accept: ".xlsx,.xls,.csv", required: true, onchange: "updateFileName(this)"
-        %label.cursor-pointer{for: "file-input"}
-          %p.text-sm.text-gray-600.mb-4 Drag and drop your file here, or
-          %span.inline-block.px-5.py-2.5.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-md.transition-colors
+        %label.cursor-pointer.block{for: "file-input"}
+          %p.text-base.text-gray-700.mb-4.font-medium Drag and drop your file here, or
+          %span.inline-block.px-6.py-3.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-lg.transition-colors.shadow-sm
             Choose File
-          %p.mt-4.text-xs.text-gray-500#file-name No file selected
-          %p.text-xs.text-gray-400.mt-1 Supports: .xlsx, .xls, .csv (Max 10MB)
+          %p.mt-4.text-sm.text-gray-600#file-name No file selected
+          %p.text-xs.text-gray-400.mt-2 Supports: .xlsx, .xls, .csv files up to 10MB
 
       / Output Columns
       %div
@@ -37,21 +77,6 @@
             %p.text-sm.font-medium.text-blue-800 Scope Classification
             %p.text-xs.text-blue-600.mt-0.5 In scope / Out of scope detection
 
-      / Volume Multiplier Options
-      .border.border-gray-200.rounded-lg.p-4.space-y-4
-        %h3.text-sm.font-medium.text-gray-900.mb-3 Volume Processing Options
-        
-        .flex.items-start.space-x-3
-          = form.check_box :volume_multiplier_enabled, id: "volume-multiplier-checkbox", class: "mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded", onchange: "toggleVolumeMultiplier(this)"
-          %div
-            = form.label :volume_multiplier_enabled, "Apply volume multiplier to EAU values", class: "text-sm font-medium text-gray-900"
-            %p.text-xs.text-gray-600.mt-0.5 Multiply all EAU (Estimated Annual Usage) values by a factor to handle volume scenarios
-        
-        #volume-multiplier-input.hidden.ml-7
-          %div
-            = form.label :volume_multiplier, "Volume multiplier:", class: "block text-sm font-medium text-gray-700 mb-1"
-            = form.number_field :volume_multiplier, min: 1, value: 1, class: "w-24 px-3 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
-            %p.text-xs.text-gray-500.mt-1 Enter an integer (e.g., 5 to multiply EAU by 5)
 
       / Processing Info
       .border-l-4.border-amber-400.bg-amber-50.p-4.rounded-r-lg
@@ -80,13 +105,43 @@
   }
 
   function toggleVolumeMultiplier(checkbox) {
-      const inputDiv = document.getElementById('volume-multiplier-input');
+      const settingsDiv = document.getElementById('volume-multiplier-settings');
+      const statusDiv = document.getElementById('volume-status');
+      const card = document.getElementById('volume-config-card');
+
       if (checkbox.checked) {
-          inputDiv.classList.remove('hidden');
+          settingsDiv.classList.remove('hidden');
+          statusDiv.textContent = 'Enabled';
+          statusDiv.className = 'text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium transition-all';
+          card.classList.add('ring-2', 'ring-blue-200', 'border-blue-300');
       } else {
-          inputDiv.classList.add('hidden');
+          settingsDiv.classList.add('hidden');
+          statusDiv.textContent = 'Disabled';
+          statusDiv.className = 'text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium transition-all';
+          card.classList.remove('ring-2', 'ring-blue-200', 'border-blue-300');
       }
   }
+
+  // Update preview when multiplier value changes
+  function updatePreview() {
+      const multiplierInput = document.querySelector('input[name="file_upload[volume_multiplier]"]');
+      const previewResult = document.getElementById('preview-result');
+
+      if (multiplierInput && previewResult) {
+          const value = parseInt(multiplierInput.value) || 1;
+          const result = 100 * value;
+          previewResult.textContent = result.toLocaleString();
+      }
+  }
+
+  // Initialize preview functionality
+  document.addEventListener('DOMContentLoaded', function() {
+      const multiplierInput = document.querySelector('input[name="file_upload[volume_multiplier]"]');
+      if (multiplierInput) {
+          multiplierInput.addEventListener('input', updatePreview);
+          updatePreview(); // Initial call
+      }
+  });
 
   // Drag and drop
   const dropZone = document.querySelector('.border-dashed');
