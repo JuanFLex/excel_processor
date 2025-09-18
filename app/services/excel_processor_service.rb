@@ -100,13 +100,6 @@ class ExcelProcessorService
       end
       
       Rails.logger.info "✅ [DEMO] Columns successfully identified by AI!"
-      column_mapping.each do |target, source|
-        if source
-          Rails.logger.info "   🎯 [DEMO] #{target} ← #{source}"
-        else
-          Rails.logger.info "   ❌ [DEMO] #{target} ← (not found)"
-        end
-      end
       
       # NUEVO: Detectar si el archivo tiene exactamente level3_desc o global_comm_code_desc
       has_level3_desc = column_mapping['LEVEL3_DESC'].present?
@@ -132,7 +125,6 @@ class ExcelProcessorService
       
       # Procesar todas las filas en lotes
       (2..spreadsheet.last_row).each_slice(batch_size).with_index do |row_indices, batch_index|
-        Rails.logger.info "🔄 [DEMO] Processing batch #{batch_index + 1} of #{total_batches}..."
         
         # Preparar datos para procesamiento en lote
         batch_rows = []
@@ -151,13 +143,11 @@ class ExcelProcessorService
           processed_items = process_batch_with_commodity_desc(batch_rows, column_mapping, manual_remap)
           classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
           
-          Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products processed with existing level3_desc commodities"
         else
           # Procesamiento original con AI para commodity
           processed_items = process_batch_with_ai_commodity(batch_rows, column_mapping, batch_index, manual_remap)
           classified_count = processed_items.count { |item| item['commodity'] != 'Unknown' }
           
-          Rails.logger.info "📊 [DEMO] Batch completed: #{classified_count} of #{batch_rows.size} products successfully classified by AI"
         end
         
         # Cargar AML cache con los items únicos del archivo actual
@@ -318,10 +308,6 @@ class ExcelProcessorService
             values['scope'] = 'In scope'
           end
         
-        # Log ocasional para mostrar deteccion
-          if index % 10 == 0
-            Rails.logger.info " [DEMO] '#{full_text}...' → Insufficient context"
-          end
         else 
           embedding = description_embeddings[full_text]
           
@@ -379,7 +365,6 @@ class ExcelProcessorService
       end
       
       # Aplicar remapping de líneas individuales SIEMPRE (para todos los items)
-      Rails.logger.info "🔧 [DEBUG] About to apply line remapping for ALL items - manual_remap present: #{manual_remap.present?}"
       values = apply_line_remapping(values, manual_remap, index)
       
       # LEGACY: Aplicar cambios masivos de commodity (para retrocompatibilidad)
@@ -921,7 +906,7 @@ class ExcelProcessorService
       Rails.logger.info "🎭 [MOCK SQL] Loading mock AML data..."
       
       mock_data = MockItemLookup.mock_aml_data
-      @aml_total_demand_cache = mock_data[:total_demand]
+      @aml_total_demand_cache = @processed_file.enable_total_demand_lookup ? mock_data[:total_demand] : {}
       @aml_min_price_cache = mock_data[:min_price]
       cache_size = @aml_total_demand_cache.size + @aml_min_price_cache.size
     else
@@ -930,24 +915,28 @@ class ExcelProcessorService
         total_demand_count = 0
         min_price_count = 0
         
-        # Procesar Total Demand en batches
-        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_items, batch_index|
-          Rails.logger.info "  📦 [BATCH] Processing Total Demand batch #{batch_index + 1} (#{batch_items.size} items)..."
-          
-          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
-          
-          result = ItemLookup.connection.select_all(
-            "SELECT ITEM, TOTAL_DEMAND
-             FROM ExcelProcessorAMLfind
-             WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
-          )
-          
-          result.rows.each do |row|
-            item = row[0]
-            total_demand = row[1]
-            @aml_total_demand_cache[item] = total_demand
-            total_demand_count += 1
+        # Procesar Total Demand en batches solo si está habilitado
+        if @processed_file.enable_total_demand_lookup
+          unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_items, batch_index|
+            Rails.logger.info "  📦 [BATCH] Processing Total Demand batch #{batch_index + 1} (#{batch_items.size} items)..."
+            
+            quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+            
+            result = ItemLookup.connection.select_all(
+              "SELECT ITEM, TOTAL_DEMAND
+               FROM ExcelProcessorAMLfind
+               WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
+            )
+            
+            result.rows.each do |row|
+              item = row[0]
+              total_demand = row[1]
+              @aml_total_demand_cache[item] = total_demand
+              total_demand_count += 1
+            end
           end
+        else
+          Rails.logger.info "⏭️ [SKIP] Total Demand lookup disabled for this file"
         end
         
         # Procesar Min Price en batches (ahora solo usa items, no mpn)
@@ -984,6 +973,9 @@ class ExcelProcessorService
 
   def lookup_total_demand(item)
     return nil if item.blank?
+    
+    # Check if Total Demand lookup is enabled for this file
+    return nil unless @processed_file.enable_total_demand_lookup
     
     # BYPASS CACHE - lookup directo en tiempo real
     if ENV['MOCK_SQL_SERVER'] == 'true'
@@ -1042,7 +1034,6 @@ class ExcelProcessorService
         values['commodity'] = new_commodity
         values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
         
-        Rails.logger.info "🎯 [LINE REMAP] Item #{existing_item[:id]} ('#{item_identifier}'): '#{original_commodity}' → '#{new_commodity}' (Scope: #{values['scope']})"
         break # Solo aplicar el primer match
       end
     end

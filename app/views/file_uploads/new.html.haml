@@ -15,7 +15,7 @@
         %p.text-sm.text-gray-600 Configure how your data will be processed
 
       / Volume Multiplier Toggle Card
-      .bg-white.border.border-gray-200.rounded-lg.p-4.transition-all.duration-200.hover:shadow-md{"id" => "volume-config-card"}
+      .bg-white.border.border-gray-200.rounded-lg.p-4.mb-4.transition-all.duration-200.hover:shadow-md{"id" => "volume-config-card"}
         .flex.items-start.space-x-4
           .flex-shrink-0.mt-1
             = form.check_box :volume_multiplier_enabled, id: "volume-multiplier-checkbox", class: "h-5 w-5 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleVolumeMultiplier(this)"
@@ -47,6 +47,25 @@
               %p.text-xs.font-medium.text-blue-800.mb-1 Volume Scaling Impact
               %p.text-xs.text-blue-700 This multiplier affects both EAU values and downstream EAR (Extended Annual Requirements) calculations
 
+      / Total Demand Lookup Toggle Card
+      .bg-white.border.border-gray-200.rounded-lg.p-4.transition-all.duration-200.hover:shadow-md{"id" => "demand-config-card"}
+        .flex.items-start.space-x-4
+          .flex-shrink-0.mt-1
+            = form.check_box :enable_total_demand_lookup, id: "total-demand-checkbox", class: "h-5 w-5 text-purple-600 focus:ring-purple-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleTotalDemandLookup(this)"
+          .flex-1.min-w-0
+            .flex.items-center.justify-between
+              %div
+                = form.label :enable_total_demand_lookup, "Total Demand Lookup", class: "text-base font-medium text-gray-900 cursor-pointer", for: "total-demand-checkbox"
+                %p.text-sm.text-gray-600.mt-1 Query SQL Server for Total Demand data when EAU is unavailable for EAR calculations
+              %div#demand-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
+                Disabled
+
+        / Info panel - shown when enabled
+        #total-demand-info.hidden.mt-4.pt-4.border-t.border-gray-100
+          .bg-purple-50.rounded-lg.p-4
+            %p.text-xs.font-medium.text-purple-800.mb-1 Total Demand Impact
+            %p.text-xs.text-purple-700 When enabled, the system will query ExcelProcessorAMLfind table for Total Demand values to calculate EAR when EAU is missing or zero. This provides more complete financial analysis but requires SQL Server connectivity.
+
     / Upload Area - Refined
     .border-2.border-dashed.border-gray-300.rounded-xl.p-8.text-center.hover:border-gray-400.transition-all.duration-200.hover:bg-gray-50.group
       = form.file_field :file, class: "sr-only", id: "file-input", accept: ".xlsx,.xls,.csv", required: true, onchange: "updateFileName(this)"
@@ -75,6 +94,7 @@
         .border.border-blue-200.rounded-lg.p-3.bg-blue-50
           %p.text-sm.font-medium.text-blue-800 Scope Classification
           %p.text-xs.text-blue-600.mt-0.5 In scope / Out of scope detection
+
 
     / Processing Info
     .border-l-4.border-amber-400.bg-amber-50.p-4.rounded-r-lg
@@ -168,3 +188,21 @@
       fileInput.files = files;
       updateFileName(fileInput);
   });
+
+  function toggleTotalDemandLookup(checkbox) {
+      const infoDiv = document.getElementById('total-demand-info');
+      const statusDiv = document.getElementById('demand-status');
+      const card = document.getElementById('demand-config-card');
+
+      if (checkbox.checked) {
+          infoDiv.classList.remove('hidden');
+          statusDiv.textContent = 'Enabled';
+          statusDiv.className = 'text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-800 font-medium transition-all';
+          card.classList.add('ring-2', 'ring-purple-200', 'border-purple-300');
+      } else {
+          infoDiv.classList.add('hidden');
+          statusDiv.textContent = 'Disabled';
+          statusDiv.className = 'text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium transition-all';
+          card.classList.remove('ring-2', 'ring-purple-200', 'border-purple-300');
+      }
+  }

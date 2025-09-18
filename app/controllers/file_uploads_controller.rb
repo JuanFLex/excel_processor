@@ -18,6 +18,9 @@ class FileUploadsController < ApplicationController
       @processed_file.volume_multiplier = file_params[:volume_multiplier].to_i
     end
     
+    # Guardar configuración del Total Demand lookup
+    @processed_file.enable_total_demand_lookup = file_params[:enable_total_demand_lookup] == '1'
+    
     if @processed_file.save
       # ACTUALIZADO: Guardar archivo original en Active Storage
       uploaded_file = file_params[:file]
@@ -127,11 +130,6 @@ class FileUploadsController < ApplicationController
       return
     end
     
-    # Debug: Log what we're receiving
-    Rails.logger.info "DEMO: Reprocessing started for file #{@processed_file.id}"
-    Rails.logger.info "DEMO: Raw params received: #{params.inspect}"
-    Rails.logger.info "DEMO: Filtered remap_params: #{remap_params.inspect}"
-    
     # Actualizar estado
     @processed_file.update(status: 'processing')
     
@@ -229,7 +227,7 @@ class FileUploadsController < ApplicationController
   private
   
   def file_params
-    params.require(:file_upload).permit(:file, :volume_multiplier_enabled, :volume_multiplier)
+    params.require(:file_upload).permit(:file, :volume_multiplier_enabled, :volume_multiplier, :enable_total_demand_lookup)
   end
   
   # NUEVO: Parámetros para remapeo
@@ -349,35 +347,20 @@ class FileUploadsController < ApplicationController
       # Add header with column-specific styling
       sheet.add_row headers, style: header_styles
       
-      # Add filtered data with real SQL lookups (same as main Excel generation)
+      # Add filtered data with real SQL lookups (optimized with batch processing)
+      # Pre-load all SQL data in batches to avoid N+1 queries
+      sql_caches = load_sql_caches_for_export(filtered_items)
+      
       item_tracker = Set.new
       filtered_items.each do |item|
         # Track unique items (same logic as main generation)
         unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
         item_tracker.add(item.item)
         
-        # Lookup real data from SQL Server (same as main generation)
-        total_demand_data = nil
-        min_price_data = nil
-        cross_ref_mpn = nil
-        
-        begin
-          if ENV['MOCK_SQL_SERVER'] != 'true'
-            # Total Demand lookup
-            demand_result = ItemLookup.connection.select_all("SELECT TOTAL_DEMAND FROM ExcelProcessorAMLfind WHERE ITEM = '#{item.item}' AND TOTAL_DEMAND IS NOT NULL")
-            total_demand_data = demand_result.rows.first&.first
-            
-            # Min Price lookup  
-            price_result = ItemLookup.connection.select_all("SELECT MIN_PRICE FROM ExcelProcessorAMLfind WHERE ITEM = '#{item.item}' AND MIN_PRICE IS NOT NULL")
-            min_price_data = price_result.rows.first&.first
-            
-            # Cross reference lookup
-            cross_ref_result = ItemLookup.connection.select_all("SELECT INFINEX_MPN FROM INX_dataLabCrosses WHERE CROSS_REF_MPN = '#{item.mfg_partno}' AND INFINEX_MPN IS NOT NULL")
-            cross_ref_mpn = cross_ref_result.rows.first&.first
-          end
-        rescue => e
-          Rails.logger.error "Error looking up SQL data for #{item.item}: #{e.message}"
-        end
+        # Lookup data from pre-loaded caches (optimized batch processing)
+        total_demand_data = sql_caches[:total_demand][item.item.to_s.strip] if sql_caches[:total_demand]
+        min_price_data = sql_caches[:min_price][item.item.to_s.strip] if sql_caches[:min_price]
+        cross_ref_mpn = sql_caches[:cross_ref][item.mfg_partno.to_s.strip] if sql_caches[:cross_ref] && item.mfg_partno
         
         sheet.add_row [
           item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
@@ -456,5 +439,85 @@ class FileUploadsController < ApplicationController
     unless current_user&.admin?
       redirect_to file_uploads_path, alert: 'Only administrators can delete files.'
     end
+  end
+
+  # Optimized batch loading of SQL caches for export functionality
+  def load_sql_caches_for_export(filtered_items)
+    caches = {
+      total_demand: {},
+      min_price: {},
+      cross_ref: {}
+    }
+    
+    # Skip if using mock SQL server
+    return caches if ENV['MOCK_SQL_SERVER'] == 'true'
+    
+    # Extract unique items and MPNs
+    unique_items = filtered_items.map { |item| item.item.to_s.strip }.compact.uniq
+    unique_mpns = filtered_items.map { |item| item.mfg_partno.to_s.strip }.compact.uniq.reject(&:empty?)
+    
+    Rails.logger.info "🔍 [EXPORT] Loading SQL caches for #{unique_items.size} unique items and #{unique_mpns.size} unique MPNs"
+    
+    begin
+      # Load Total Demand cache (only if enabled for this processed file)
+      if @processed_file.enable_total_demand_lookup && unique_items.any?
+        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_items|
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+          
+          result = ItemLookup.connection.select_all(
+            "SELECT ITEM, TOTAL_DEMAND 
+             FROM ExcelProcessorAMLfind 
+             WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
+          )
+          
+          result.rows.each do |row|
+            caches[:total_demand][row[0]] = row[1]
+          end
+        end
+        Rails.logger.info "🔍 [EXPORT] Loaded #{caches[:total_demand].size} Total Demand entries"
+      end
+      
+      # Load Min Price cache
+      if unique_items.any?
+        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_items|
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+          
+          result = ItemLookup.connection.select_all(
+            "SELECT ITEM, MIN_PRICE 
+             FROM ExcelProcessorAMLfind 
+             WHERE ITEM IN (#{quoted_items}) AND MIN_PRICE IS NOT NULL"
+          )
+          
+          result.rows.each do |row|
+            caches[:min_price][row[0]] = row[1]
+          end
+        end
+        Rails.logger.info "🔍 [EXPORT] Loaded #{caches[:min_price].size} Min Price entries"
+      end
+      
+      # Load Cross Reference cache
+      if unique_mpns.any?
+        unique_mpns.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_mpns|
+          quoted_mpns = batch_mpns.map { |mpn| "'#{mpn.gsub("'", "''")}'" }.join(',')
+          
+          result = ItemLookup.connection.select_all(
+            "SELECT CROSS_REF_MPN, INFINEX_MPN 
+             FROM INX_dataLabCrosses 
+             WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL"
+          )
+          
+          result.rows.each do |row|
+            caches[:cross_ref][row[0]] = row[1]
+          end
+        end
+        Rails.logger.info "🔍 [EXPORT] Loaded #{caches[:cross_ref].size} Cross Reference entries"
+      end
+      
+    rescue => e
+      Rails.logger.error "❌ [EXPORT] Error loading SQL caches: #{e.message}"
+      # Return empty caches so export continues without SQL data
+    end
+    
+    caches
   end
 end
