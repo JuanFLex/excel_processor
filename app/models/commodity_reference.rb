@@ -68,26 +68,35 @@ class CommodityReference < ApplicationRecord
   def self.find_most_similar(description_embedding, limit = 1)
     return [] if description_embedding.nil?
     
-    # Convertir embedding del parámetro a un array de Ruby
-    query_embedding = description_embedding
+    # OPTIMIZACIÓN: Usar PostgreSQL nativo para calcular similitud de coseno
+    # Esto evita cargar 2999 records en memoria y hacer cálculos en Ruby
     
-    # Ordenamos por similitud de coseno (mayor similitud primero)
-    # Esto se hace calculando el producto punto entre los vectores normalizados
-    records = all.sort_by do |record|
-      next -Float::INFINITY unless record.embedding.is_a?(Array)
-      
-      # Calcular similitud de coseno manualmente
-      dot_product = 0
-      record_embedding = record.embedding
-      record_embedding.each_with_index do |val, i|
-        dot_product += val * query_embedding[i]
-      end
-      
-      # Magnitud (normalizada) = 1, por lo que la similitud es simplemente el producto punto
-      -dot_product # Negativo para ordenar por mayor similitud primero
-    end
+    # Convertir array de Ruby a formato JSON para PostgreSQL
+    query_embedding_json = description_embedding.to_json
     
-    records.first(limit)
+    # Query PostgreSQL que calcula similitud de coseno usando operaciones JSONB
+    # Fórmula: dot_product(A, B) donde A y B están normalizados (similitud = producto punto)
+    similarity_sql = <<~SQL
+      SELECT *, 
+             (
+               SELECT SUM((embedding_elem::float * query_elem::float))
+               FROM jsonb_array_elements(embedding) WITH ORDINALITY AS t1(embedding_elem, idx)
+               JOIN jsonb_array_elements(?::jsonb) WITH ORDINALITY AS t2(query_elem, idx2) 
+                 ON t1.idx = t2.idx2
+             ) AS cosine_similarity
+      FROM commodity_references
+      WHERE embedding IS NOT NULL
+      ORDER BY cosine_similarity DESC
+      LIMIT ?
+    SQL
+    
+    # Ejecutar query con parámetros preparados para seguridad
+    records = find_by_sql([similarity_sql, query_embedding_json, limit])
+    
+    # Log para monitoreo de performance (opcional)
+    Rails.logger.debug "🚀 [PERFORMANCE] PostgreSQL similarity search completed for #{limit} results"
+    
+    records
   end
 
   # NUEVO: Método para buscar por commodity exacto
