@@ -986,18 +986,8 @@ class ExcelProcessorService
     # Check if Total Demand lookup is enabled for this file
     return nil unless @processed_file.enable_total_demand_lookup
     
-    # BYPASS CACHE - lookup directo en tiempo real
-    if ENV['MOCK_SQL_SERVER'] == 'true'
-      return @aml_total_demand_cache[item.strip]
-    end
-    
-    begin
-      result = ItemLookup.connection.select_all("SELECT TOTAL_DEMAND FROM ExcelProcessorAMLfind WHERE ITEM = '#{item.strip}' AND TOTAL_DEMAND IS NOT NULL")
-      return result.rows.first&.first
-    rescue => e
-      Rails.logger.error "Error looking up Total Demand for #{item}: #{e.message}"
-      return nil
-    end
+    # USE CACHE - lookup from pre-loaded batch cache for performance
+    return @aml_total_demand_cache[item.strip]
   end
 
   def lookup_min_price(item)
