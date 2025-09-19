@@ -21,26 +21,30 @@ class OpenaiService
       
       return [] if texts.empty?
       
+      # Pre-cargar embeddings de BD en batch para evitar N+1 queries
+      start_time = Time.current
+      db_embeddings_cache = preload_embeddings_from_db_batched(texts)
+      cache_load_time = ((Time.current - start_time) * 1000).round(2)
+      Rails.logger.info "⏱️ [TIMING] DB Embeddings Cache Load: #{cache_load_time}ms"
+      
       # Filtrar textos que ya están en caché
       uncached_texts = []
       cached_embeddings = []
       
       texts.each_with_index do |text, index|
-        sanitized_text = text.to_s.strip
+        sanitized_text = sanitize_text_for_embedding(text)
         
         # Buscar primero en caché de memoria
         if @embeddings_cache.key?(sanitized_text)
           cached_embeddings[index] = @embeddings_cache[sanitized_text]
+        elsif db_embeddings_cache.key?(sanitized_text)
+          # Usar caché de BD pre-cargado (evita N+1 queries)
+          db_embedding = db_embeddings_cache[sanitized_text]
+          cached_embeddings[index] = db_embedding
+          @embeddings_cache[sanitized_text] = db_embedding
+          Rails.logger.info "💾 [BD CACHE] Embedding encontrado para: #{sanitized_text[0..30]}..."
         else
-          # Buscar en base de datos
-          db_embedding = find_embedding_in_db(sanitized_text)
-          if db_embedding
-            cached_embeddings[index] = db_embedding
-            @embeddings_cache[sanitized_text] = db_embedding
-            Rails.logger.info "💾 [BD CACHE] Embedding encontrado para: #{sanitized_text[0..30]}..."
-          else
-            uncached_texts << { text: sanitized_text, index: index }
-          end
+          uncached_texts << { text: sanitized_text, index: index }
         end
       end
       
@@ -272,9 +276,38 @@ class OpenaiService
     
     private
     
-    # Buscar embedding existente en base de datos
+    # Buscar embedding existente en base de datos (individual - para compatibilidad)
     def find_embedding_in_db(text)
       ProcessedItem.where("description = ? AND embedding IS NOT NULL", text).first&.embedding
+    end
+    
+    # Buscar embeddings existentes en base de datos (batch optimizado)
+    def preload_embeddings_from_db_batched(texts)
+      sanitized_texts = texts.map { |text| sanitize_text_for_embedding(text) }.uniq
+      db_embeddings_cache = {}
+      
+      Rails.logger.info "💾 [BD CACHE] Loading embeddings for #{sanitized_texts.size} unique texts in batches"
+      
+      # Procesar en lotes para evitar queries muy grandes
+      sanitized_texts.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_texts, batch_index|
+        Rails.logger.info "💾 [BD CACHE] Processing batch #{batch_index + 1} (#{batch_texts.size} texts)"
+        
+        batch_results = ProcessedItem
+          .where(description: batch_texts)
+          .where.not(embedding: nil)
+          .pluck(:description, :embedding)
+          .to_h
+        
+        db_embeddings_cache.merge!(batch_results)
+      end
+      
+      Rails.logger.info "💾 [BD CACHE] Loaded #{db_embeddings_cache.size} existing embeddings from database"
+      db_embeddings_cache
+    end
+    
+    # Sanitizar texto para embedding (helper method)
+    def sanitize_text_for_embedding(text)
+      text.to_s.strip
     end
     
     # Estimar tokens para text-embedding-3-small (aprox 1 token = 4 caracteres)

@@ -108,6 +108,65 @@ class CommodityReference < ApplicationRecord
     # FIX: Usar comparación case-insensitive para manejar variaciones en capitalización
     record.infinex_scope_status&.downcase == 'in scope' ? 'In scope' : 'Out of scope'
   end
+
+  # OPTIMIZACIÓN: Buscar múltiples commodities en batch para evitar N+1 queries
+  def self.find_commodities_batch(commodity_names, column_type = 'level3_desc')
+    return {} if commodity_names.empty?
+    
+    unique_names = commodity_names.compact.reject(&:blank?).uniq
+    commodities_cache = {}
+    
+    Rails.logger.info "🔍 [COMMODITY BATCH] Loading #{unique_names.size} commodities in batches"
+    
+    # Procesar en lotes para evitar queries muy grandes
+    unique_names.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_names, batch_index|
+      Rails.logger.info "🔍 [COMMODITY BATCH] Processing batch #{batch_index + 1} (#{batch_names.size} commodities)"
+      
+      case column_type.to_s
+      when 'global_comm_code_desc'
+        # Crear mapeo case-insensitive para global_comm_code_desc
+        lower_names = batch_names.map(&:to_s).map(&:strip).map(&:downcase)
+        batch_results = where("LOWER(global_comm_code_desc) IN (?)", lower_names)
+        
+        batch_results.each do |record|
+          # Buscar el nombre original que coincide (case-insensitive)
+          original_name = batch_names.find { |name| name.to_s.strip.downcase == record.global_comm_code_desc.to_s.downcase }
+          commodities_cache[original_name] = record if original_name
+        end
+      else # 'level3_desc'
+        # Crear mapeo case-insensitive para level3_desc
+        lower_names = batch_names.map(&:to_s).map(&:strip).map(&:downcase)
+        batch_results = where("LOWER(level3_desc) IN (?)", lower_names)
+        
+        batch_results.each do |record|
+          # Buscar el nombre original que coincide (case-insensitive)
+          original_name = batch_names.find { |name| name.to_s.strip.downcase == record.level3_desc.to_s.downcase }
+          commodities_cache[original_name] = record if original_name
+        end
+      end
+    end
+    
+    Rails.logger.info "🔍 [COMMODITY BATCH] Loaded #{commodities_cache.size} commodity references"
+    commodities_cache
+  end
+
+  # OPTIMIZACIÓN: Obtener scopes para múltiples commodities en batch
+  def self.scopes_for_commodities_batch(commodity_names, column_type = 'level3_desc')
+    commodities_cache = find_commodities_batch(commodity_names, column_type)
+    
+    # Crear mapeo de commodity name -> scope
+    scope_mapping = {}
+    commodity_names.each do |name|
+      record = commodities_cache[name]
+      if record
+        scope_mapping[name] = record.infinex_scope_status&.downcase == 'in scope' ? 'In scope' : 'Out of scope'
+      else
+        scope_mapping[name] = 'Out of scope'
+      end
+    end
+    
+    scope_mapping
+  end
   
   # Scope para búsqueda global
   def self.search(query)

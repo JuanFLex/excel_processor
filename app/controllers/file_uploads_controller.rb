@@ -49,6 +49,15 @@ class FileUploadsController < ApplicationController
     @processed_file = ProcessedFile.find(params[:id])
     @items_sample = @processed_file.processed_items.limit(5)
     @analytics = @processed_file.analytics
+    
+    # Pre-cargar commodity references en batch para evitar N+1 en la vista
+    if @processed_file.unique_items_array.any?
+      unique_commodities = @processed_file.unique_items_array.map(&:commodity).uniq.compact.reject(&:blank?)
+      @commodity_to_level1_cache = CommodityReference.find_commodities_batch(unique_commodities)
+        .transform_values { |ref| ref&.level1_desc || 'Unknown Level 1' }
+    else
+      @commodity_to_level1_cache = {}
+    end
   end
   
   def download

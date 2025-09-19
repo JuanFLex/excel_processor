@@ -136,10 +136,8 @@
               .bg-gray-50.rounded-lg.p-12.text-center
                 %p.text-sm.text-gray-500= @processed_file.processing? ? 'Processing in progress' : 'No items processed yet'
 
-        -# Level 1 Summary Table
-        - commodity_to_level1 = @processed_file.unique_items_array.map(&:commodity).uniq.compact.reject(&:blank?).each_with_object({}) do |commodity, hash|
-          - ref = CommodityReference.find_by_commodity_exact(commodity)
-          - hash[commodity] = ref&.level1_desc || 'Unknown Level 1'
+        -# Level 1 Summary Table (optimizado para evitar N+1 queries)
+        - commodity_to_level1 = @commodity_to_level1_cache
         - level1_summary = Hash.new { |h, k| h[k] = { parts: 0, ear: 0, items: [] } }
         - @processed_file.unique_items_array.each do |item|
           - level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
