@@ -12,11 +12,16 @@ class TopEarAnalyzerJob < ApplicationJob
     
     Rails.logger.info "🤖 [AUTO-AI] Starting automatic analysis for top #{ExcelProcessorConfig::TOP_EAR_ANALYSIS_COUNT} EAR items in file: #{processed_file.original_filename}"
     
-    # Obtener los top items con mayor EAR
+    # Obtener los top items con mayor EAR (calculado como EAU × precio_mínimo)
     top_items = processed_file.processed_items
-                              .where.not(ear: nil)
-                              .where('ear > 0')
-                              .order(ear: :desc)
+                              .where.not(eau: nil)
+                              .where('eau > 0')
+                              .where('std_cost > 0 OR last_purchase_price > 0 OR last_po > 0')
+                              .order(Arel.sql('eau * LEAST(
+                                NULLIF(CASE WHEN std_cost > 0 THEN std_cost END, NULL),
+                                NULLIF(CASE WHEN last_purchase_price > 0 THEN last_purchase_price END, NULL),
+                                NULLIF(CASE WHEN last_po > 0 THEN last_po END, NULL)
+                              ) DESC'))
                               .limit(ExcelProcessorConfig::TOP_EAR_ANALYSIS_COUNT)
     
     if top_items.empty?
@@ -29,7 +34,7 @@ class TopEarAnalyzerJob < ApplicationJob
     results = []
     
     top_items.each do |item|
-      Rails.logger.info "🤖 [AUTO-AI] Analyzing item #{item.id} (EAR: #{item.ear})"
+      Rails.logger.info "🤖 [AUTO-AI] Analyzing item #{item.id} (EAR: #{item.ear_value})"
       
       begin
         item_start_time = Time.current
