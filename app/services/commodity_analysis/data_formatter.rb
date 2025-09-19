@@ -25,16 +25,15 @@ module CommodityAnalysis
       
       def get_similar_commodities_data(item)
         return [] unless item.embedding.present?
-        
+
         similares = CommodityReference.find_most_similar(item.embedding, ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT)
-        
+
         start_time = Time.current
-        calculations_count = 0
-        
+
         result = similares.map.with_index do |commodity, index|
-          calculations_count += 1
-          similarity = calculate_cosine_similarity(item.embedding, commodity.embedding)
-          
+          # Usar la similitud ya calculada por PostgreSQL en lugar de recalcular
+          similarity = commodity.attributes['cosine_similarity'] || commodity.cosine_similarity || 0.0
+
           {
             posicion: index + 1,
             nombre: commodity.level3_desc,
@@ -49,7 +48,7 @@ module CommodityAnalysis
         end
         
         elapsed_ms = ((Time.current - start_time) * 1000).round(2)
-        Rails.logger.info "⏱️ [TIMING] Similar commodities data formatting: #{calculations_count} cosine calculations in #{elapsed_ms}ms" if elapsed_ms > 1
+        Rails.logger.info "⏱️ [TIMING] Similar commodities data formatting: #{similares.size} items formatted in #{elapsed_ms}ms (using precomputed PostgreSQL cosine similarities)" if elapsed_ms > 1
         
         result
       end

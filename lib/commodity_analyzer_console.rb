@@ -59,7 +59,8 @@ class CommodityAnalyzerConsole
         puts
         
         similares.each_with_index do |commodity, index|
-          similarity = calculate_cosine_similarity(item.embedding, commodity.embedding)
+          # Usar la similitud ya calculada por PostgreSQL en lugar de recalcular
+          similarity = commodity.attributes['cosine_similarity'] || commodity.cosine_similarity || 0.0
           
           puts "#{index + 1}. #{commodity.level3_desc} (#{(similarity * 100).round(2)}%)"
           puts "   Scope: #{commodity.infinex_scope_status}"

@@ -1,6 +1,9 @@
 class CommodityReference < ApplicationRecord
   include SimilarityCalculable
   validates :level3_desc, presence: true
+
+  # Atributo virtual para similitud de coseno calculada por PostgreSQL
+  attr_accessor :cosine_similarity
   
   # Callback para regenerar embedding cuando se actualiza
   after_update :regenerate_embedding_if_needed
