@@ -327,11 +327,15 @@ class OpenaiService
       sanitized_texts.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_texts, batch_index|
         Rails.logger.info "💾 [BD CACHE] Processing batch #{batch_index + 1} (#{batch_texts.size} texts)"
         
-        batch_results = ProcessedItem
-          .where(description: batch_texts)
-          .where.not(embedding: nil)
-          .pluck(:description, :embedding)
-          .to_h
+        # Buscar por el texto completo del embedding, no solo description
+        batch_results = {}
+        ProcessedItem.where.not(embedding: nil).find_each do |item|
+          item_embedding_text = item.recreate_embedding_text
+          if batch_texts.include?(item_embedding_text)
+            batch_results[item_embedding_text] = item.embedding
+            Rails.logger.debug "💾 [BD CACHE] Found existing embedding for: #{item_embedding_text[0..50]}..."
+          end
+        end
         
         db_embeddings_cache.merge!(batch_results)
       end
