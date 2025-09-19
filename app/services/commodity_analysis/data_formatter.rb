@@ -26,7 +26,7 @@ module CommodityAnalysis
       def get_similar_commodities_data(item)
         return [] unless item.embedding.present?
         
-        similares = CommodityReference.find_most_similar(item.embedding, 5)
+        similares = CommodityReference.find_most_similar(item.embedding, ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT)
         
         similares.map.with_index do |commodity, index|
           similarity = calculate_cosine_similarity(item.embedding, commodity.embedding)

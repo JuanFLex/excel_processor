@@ -29,4 +29,5 @@ class ExcelProcessorConfig
   
   # Automatic AI analysis constants
   TOP_EAR_ANALYSIS_COUNT = 1 # Number of top EAR items to analyze automatically
+  SIMILARITY_ANALYSIS_LIMIT = 5 # Number of similar commodities to retrieve for analysis
 end
