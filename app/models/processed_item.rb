@@ -1,12 +1,28 @@
 class ProcessedItem < ApplicationRecord
   belongs_to :processed_file
-  
+
   validates :item, presence: true
   validates :description, presence: true
-  
+
   # Tipos de datos para los campos numéricos
   validates :std_cost, :last_purchase_price, :last_po, numericality: { allow_nil: true }
   validates :eau, numericality: { only_integer: true, allow_nil: true }
+
+  # Callback para invalidar cache de embeddings cuando se actualiza
+  after_update :invalidate_embedding_cache, if: :saved_change_to_embedding?
+
+  private
+
+  def invalidate_embedding_cache
+    # Invalidar el cache del texto de embedding cuando se actualiza
+    text_for_embedding = recreate_embedding_text
+
+    if OpenaiService.invalidate_embedding_cache(text_for_embedding)
+      Rails.logger.info "🔄 [MODEL CALLBACK] Embedding cache invalidated for ProcessedItem #{id}"
+    end
+  end
+
+  public
 
    # Método para obtener solo el valor EAR calculado
   def ear_value(total_demand = nil, min_price = nil)

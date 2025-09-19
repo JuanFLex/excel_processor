@@ -1,5 +1,19 @@
 class ExcelProcessorService
-  
+
+  # Cache compartida a nivel de clase con TTL
+  @@shared_cache = {
+    commodities: { data: nil, loaded_at: nil },
+    cross_refs: { data: nil, loaded_at: nil },
+    proposals: { data: nil, loaded_at: nil }
+  }
+
+  # TTLs diferentes según volatilidad de datos
+  CACHE_TTLS = {
+    commodities: 4.hours,    # Commodities cambian poco
+    cross_refs: 2.hours,     # Cross-refs cambian más
+    proposals: 30.minutes    # Quotes cambian frecuentemente
+  }
+
   def initialize(processed_file)
     @processed_file = processed_file
     @commodities_cache = {} # Cache para evitar consultas repetidas
@@ -741,45 +755,65 @@ class ExcelProcessorService
   
   # Pre-cargar todos los cross-references para optimizar performance
   def load_cross_references_cache
-    Rails.logger.info "⚡ [PERFORMANCE] Loading cross-references and manufacturer mappings cache..."
-    start_time = Time.current
-    
-    # Pre-cargar manufacturer mappings
-    @manufacturer_cache = ManufacturerMapping.pluck(:original_name, :standardized_name).to_h
-    
-    if ENV['MOCK_SQL_SERVER'] == 'true'
-      # Usar datos del mock
-      MockItemLookup.send(:mock_crosses).each do |mpn, data|
-        @cross_references_cache[mpn] = data
-      end
-      cache_size = @cross_references_cache.size
-    else
-      # Cargar datos reales de SQL Server en una sola consulta
-      begin
-        result = ItemLookup.connection.select_all(
-          "SELECT DISTINCT CROSS_REF_MPN, SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG 
-           FROM INX_dataLabCrosses 
-           WHERE CROSS_REF_MPN IS NOT NULL"
-        )
-        
-        result.rows.each do |row|
-          @cross_references_cache[row[0]] = {
-            supplier_pn: row[1],
-            mpn: row[2],
-            cw_cost: row[3],
-            manufacturer: row[4]
-          }
+    cache_key = :cross_refs
+
+    if cache_expired?(cache_key)
+      Rails.logger.info "⚡ [CACHE] Refreshing cross-references cache (#{cache_age(cache_key)} old)"
+      start_time = Time.current
+
+      # Pre-cargar manufacturer mappings (siempre actualizar junto con cross-refs)
+      @manufacturer_cache = ManufacturerMapping.pluck(:original_name, :standardized_name).to_h
+
+      fresh_cross_refs = {}
+      cache_size = 0
+
+      if ENV['MOCK_SQL_SERVER'] == 'true'
+        # Usar datos del mock
+        MockItemLookup.send(:mock_crosses).each do |mpn, data|
+          fresh_cross_refs[mpn] = data
         end
-        cache_size = @cross_references_cache.size
-      rescue => e
-        Rails.logger.error "Error loading cross-references cache: #{e.message}"
-        cache_size = 0
+        cache_size = fresh_cross_refs.size
+      else
+        # Cargar datos reales de SQL Server en una sola consulta
+        begin
+          result = ItemLookup.connection.select_all(
+            "SELECT DISTINCT CROSS_REF_MPN, SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG
+             FROM INX_dataLabCrosses
+             WHERE CROSS_REF_MPN IS NOT NULL"
+          )
+
+          result.rows.each do |row|
+            fresh_cross_refs[row[0]] = {
+              supplier_pn: row[1],
+              mpn: row[2],
+              cw_cost: row[3],
+              manufacturer: row[4]
+            }
+          end
+          cache_size = fresh_cross_refs.size
+        rescue => e
+          Rails.logger.error "Error loading cross-references cache: #{e.message}"
+          cache_size = 0
+        end
       end
+
+      # Actualizar cache compartida
+      @@shared_cache[cache_key] = {
+        data: fresh_cross_refs,
+        loaded_at: Time.current
+      }
+
+      load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
+      mfg_cache_size = @manufacturer_cache.size
+      Rails.logger.info "⚡ [CACHE] Cross-references cache refreshed: #{cache_size} cross-refs + #{mfg_cache_size} manufacturers in #{load_time}ms"
+    else
+      Rails.logger.info "⚡ [CACHE] Using cached cross-references (#{cache_age(cache_key)} old, #{@@shared_cache[cache_key][:data].size} entries)"
+      # Pre-cargar manufacturer mappings si no existen (primera vez)
+      @manufacturer_cache ||= ManufacturerMapping.pluck(:original_name, :standardized_name).to_h
     end
-    
-    load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
-    mfg_cache_size = @manufacturer_cache.size
-    Rails.logger.info "⚡ [PERFORMANCE] Caches loaded: #{cache_size} cross-refs + #{mfg_cache_size} manufacturers in #{load_time}ms"
+
+    # Asignar cache a variable de instancia para compatibilidad
+    @cross_references_cache = @@shared_cache[cache_key][:data]
   end
   
   # Método optimizado para lookup usando cache
@@ -790,17 +824,32 @@ class ExcelProcessorService
   
   # Pre-cargar commodity references para optimizar búsqueda de similitud
   def load_commodity_references_cache
-    Rails.logger.info "⚡ [PERFORMANCE] Loading commodity references cache..."
-    start_time = Time.current
-    
-    # Cargar todos los commodities con embeddings
-    @commodity_references_cache = CommodityReference.where.not(embedding: nil).to_a
-    
-    cache_size = @commodity_references_cache.size
-    memory_mb = (cache_size * ExcelProcessorConfig::MEMORY_ESTIMATION_FACTOR / ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(1) # Estimación de memoria en MB
-    load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
-    
-    Rails.logger.info "⚡ [PERFORMANCE] Commodity cache loaded: #{cache_size} entries (~#{memory_mb} MB) in #{load_time}ms"
+    cache_key = :commodities
+
+    if cache_expired?(cache_key)
+      Rails.logger.info "⚡ [CACHE] Refreshing commodity cache (#{cache_age(cache_key)} old)"
+      start_time = Time.current
+
+      # Cargar todos los commodities con embeddings
+      fresh_data = CommodityReference.where.not(embedding: nil).to_a
+
+      # Actualizar cache compartida
+      @@shared_cache[cache_key] = {
+        data: fresh_data,
+        loaded_at: Time.current
+      }
+
+      cache_size = fresh_data.size
+      memory_mb = (cache_size * ExcelProcessorConfig::MEMORY_ESTIMATION_FACTOR / ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(1)
+      load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
+
+      Rails.logger.info "⚡ [CACHE] Commodity cache refreshed: #{cache_size} entries (~#{memory_mb} MB) in #{load_time}ms"
+    else
+      Rails.logger.info "⚡ [CACHE] Using cached commodities (#{cache_age(cache_key)} old, #{@@shared_cache[cache_key][:data].size} entries)"
+    end
+
+    # Asignar cache a variable de instancia para compatibilidad
+    @commodity_references_cache = @@shared_cache[cache_key][:data]
   end
   
   # Método optimizado para encontrar commodity similar usando cache
@@ -837,10 +886,18 @@ class ExcelProcessorService
     best_match
     end
 
-    def load_proposal_quotes_cache
+  def load_proposal_quotes_cache
+    # Check if shared cache exists and is valid
+    if @@shared_cache[:proposals][:data] && !cache_expired?(:proposals)
+      @proposal_quotes_cache = @@shared_cache[:proposals][:data]
+      age = cache_age(:proposals)
+      Rails.logger.info "🚀 [SHARED CACHE] Using existing proposal quotes cache (#{@proposal_quotes_cache.size} entries, #{age} old)"
+      return
+    end
+
     Rails.logger.info "⚡ [PERFORMANCE] Loading proposal quotes cache..."
     start_time = Time.current
-    
+
     if ENV['MOCK_SQL_SERVER'] == 'true'
       # Mock data para testing
       @proposal_quotes_cache = {}
@@ -848,6 +905,8 @@ class ExcelProcessorService
     else
       # Conexión real a SQL Server
       begin
+        @proposal_quotes_cache = {}
+
         # Consulta optimizada: obtener el registro más reciente por ITEM
         result = ItemLookup.connection.select_all(
           "SELECT ITEM, LOG_DATE, SUGAR_ID, INX_MPN
@@ -859,13 +918,13 @@ class ExcelProcessorService
           ) ranked
           WHERE rn = 1"
         )
-        
+
         result.rows.each do |row|
           item = row[0]
           log_date = row[1]
           sugar_id = row[2]
           inx_mpn = row[3]
-          
+
           @proposal_quotes_cache[item] = {
             previously_quoted: 'YES',
             quote_date: log_date,
@@ -873,16 +932,24 @@ class ExcelProcessorService
             inx_mpn: inx_mpn
           }
         end
-        
+
         cache_size = @proposal_quotes_cache.size
       rescue => e
         Rails.logger.error "Error loading proposal quotes cache: #{e.message}"
+        @proposal_quotes_cache = {}
         cache_size = 0
       end
     end
-    
+
     load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     Rails.logger.info "⚡ [PERFORMANCE] Proposal quotes cache loaded: #{cache_size} entries in #{load_time}ms"
+
+    # Store in shared cache
+    @@shared_cache[:proposals] = {
+      data: @proposal_quotes_cache.dup,
+      loaded_at: Time.current
+    }
+    Rails.logger.info "📦 [SHARED CACHE] Proposal quotes cached for future use (TTL: #{CACHE_TTLS[:proposals] / 1.minute} minutes)"
   end
 
   def lookup_proposal_quote(item, mfg_partno = nil)
@@ -1100,5 +1167,19 @@ class ExcelProcessorService
     end
     
     nil
+  end
+
+  private
+
+  # Cache TTL helper methods
+  def cache_expired?(cache_key)
+    cache = @@shared_cache[cache_key]
+    cache[:loaded_at].nil? || (Time.current - cache[:loaded_at]) > CACHE_TTLS[cache_key]
+  end
+
+  def cache_age(cache_key)
+    return "never loaded" if @@shared_cache[cache_key][:loaded_at].nil?
+    age_seconds = Time.current - @@shared_cache[cache_key][:loaded_at]
+    "#{(age_seconds / 60).round(1)}min"
   end
 end

@@ -1,17 +1,16 @@
 class OpenaiService
   EMBEDDING_MODEL = "text-embedding-3-small"
   COMPLETION_MODEL = "gpt-4-turbo"
-  
-  # Cache en memoria para evitar recalcular embeddings frecuentes
-  @embeddings_cache = {}
-  
+
+  # Class-level cache persistente para embeddings (sin TTL - los embeddings no cambian)
+  @@embeddings_cache = {}
+
   # Rate limiting para proteger contra desactivación de embeddings
-  @tokens_per_minute = 0
-  @minute_start = Time.current.beginning_of_minute
+  @@tokens_per_minute = 0
+  @@minute_start = Time.current.beginning_of_minute
   TOKEN_LIMIT_PER_MINUTE = 250_000
-  
+
   class << self
-    attr_accessor :embeddings_cache, :tokens_per_minute, :minute_start
     
     def get_embeddings(texts)
       # Switch a mock si está configurado
@@ -35,13 +34,13 @@ class OpenaiService
         sanitized_text = sanitize_text_for_embedding(text)
         
         # Buscar primero en caché de memoria
-        if @embeddings_cache.key?(sanitized_text)
-          cached_embeddings[index] = @embeddings_cache[sanitized_text]
+        if @@embeddings_cache.key?(sanitized_text)
+          cached_embeddings[index] = @@embeddings_cache[sanitized_text]
         elsif db_embeddings_cache.key?(sanitized_text)
           # Usar caché de BD pre-cargado (evita N+1 queries)
           db_embedding = db_embeddings_cache[sanitized_text]
           cached_embeddings[index] = db_embedding
-          @embeddings_cache[sanitized_text] = db_embedding
+          @@embeddings_cache[sanitized_text] = db_embedding
           Rails.logger.info "💾 [BD CACHE] Embedding encontrado para: #{sanitized_text[0..30]}..."
         else
           uncached_texts << { text: sanitized_text, index: index }
@@ -87,7 +86,7 @@ class OpenaiService
             embedding = item["embedding"]
             
             # Guardar en caché
-            @embeddings_cache[text] = embedding
+            @@embeddings_cache[text] = embedding
             
             # Guardar en resultado
             result_embeddings[index] = embedding
@@ -98,8 +97,9 @@ class OpenaiService
       end
       
       # Limpiar caché si es demasiado grande
-      if @embeddings_cache.size > ExcelProcessorConfig::EMBEDDINGS_CACHE_LIMIT
-        @embeddings_cache.clear
+      if @@embeddings_cache.size > ExcelProcessorConfig::EMBEDDINGS_CACHE_LIMIT
+        @@embeddings_cache.clear
+        Rails.logger.info "🧹 [EMBEDDINGS CACHE] Cache cleared due to size limit (#{ExcelProcessorConfig::EMBEDDINGS_CACHE_LIMIT} entries)"
       end
       
       result_embeddings
@@ -273,7 +273,42 @@ class OpenaiService
         "evidence" => "Error: #{e.message}"
       }
     end
-    
+
+    # Invalidar embedding específico del cache cuando se modifica
+    def invalidate_embedding_cache(text)
+      sanitized_text = sanitize_text_for_embedding(text)
+      if @@embeddings_cache.key?(sanitized_text)
+        @@embeddings_cache.delete(sanitized_text)
+        Rails.logger.info "🗑️ [EMBEDDINGS CACHE] Invalidated cache for: #{sanitized_text[0..30]}..."
+        true
+      else
+        false
+      end
+    end
+
+    # Invalidar múltiples embeddings del cache
+    def invalidate_embeddings_cache(texts)
+      invalidated_count = 0
+      texts.each do |text|
+        invalidated_count += 1 if invalidate_embedding_cache(text)
+      end
+
+      if invalidated_count > 0
+        Rails.logger.info "🗑️ [EMBEDDINGS CACHE] Invalidated #{invalidated_count} cached embeddings"
+      end
+
+      invalidated_count
+    end
+
+    # Obtener estadísticas del cache de embeddings
+    def embeddings_cache_stats
+      {
+        size: @@embeddings_cache.size,
+        keys: @@embeddings_cache.keys.first(5),  # Primeras 5 claves como muestra
+        memory_mb: (@@embeddings_cache.to_s.bytesize / 1024.0 / 1024.0).round(2)
+      }
+    end
+
     private
     
     # Buscar embedding existente en base de datos (individual - para compatibilidad)
@@ -318,28 +353,28 @@ class OpenaiService
     # Verificar rate limit y esperar si es necesario para proteger embeddings
     def check_and_wait_if_needed(estimated_tokens)
       current_minute = Time.current.beginning_of_minute
-      
+
       # Reset contador si cambió el minuto
-      if current_minute > @minute_start
-        @tokens_per_minute = 0
-        @minute_start = current_minute
+      if current_minute > @@minute_start
+        @@tokens_per_minute = 0
+        @@minute_start = current_minute
       end
-      
+
       # Si excedería el límite, esperar hasta el próximo minuto
-      if @tokens_per_minute + estimated_tokens > TOKEN_LIMIT_PER_MINUTE
+      if @@tokens_per_minute + estimated_tokens > TOKEN_LIMIT_PER_MINUTE
         sleep_time = 60 - Time.current.sec + 1 # +1 para estar seguro
         Rails.logger.warn "⏳ [RATE LIMIT] Se alcanzó el límite de #{TOKEN_LIMIT_PER_MINUTE} tokens/min. Esperando #{sleep_time}s para proteger embeddings..."
         sleep(sleep_time)
-        @tokens_per_minute = 0
-        @minute_start = Time.current.beginning_of_minute
+        @@tokens_per_minute = 0
+        @@minute_start = Time.current.beginning_of_minute
       end
-      
+
       # Actualizar contador
-      @tokens_per_minute += estimated_tokens
+      @@tokens_per_minute += estimated_tokens
       
       # Log ocasional para monitoreo
-      if @tokens_per_minute % 50_000 < estimated_tokens
-        Rails.logger.info "📊 [RATE LIMIT] Tokens usados en este minuto: #{@tokens_per_minute}/#{TOKEN_LIMIT_PER_MINUTE}"
+      if @@tokens_per_minute % 50_000 < estimated_tokens
+        Rails.logger.info "📊 [RATE LIMIT] Tokens usados en este minuto: #{@@tokens_per_minute}/#{TOKEN_LIMIT_PER_MINUTE}"
       end
     end
   end
