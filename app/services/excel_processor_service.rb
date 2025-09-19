@@ -12,6 +12,7 @@ class ExcelProcessorService
     @existing_items_lookup = {} # NUEVO: Lookup table para remapping de líneas individuales
     @performance_metrics = {} # Performance timing tracker
     @process_start_time = Time.current
+    @cosine_calculation_count = 0 # Counter for cosine similarity calculations
   end
   
   def process_upload(file, manual_remap = nil)
@@ -809,6 +810,9 @@ class ExcelProcessorService
     best_match = nil
     best_similarity = -Float::INFINITY
     
+    start_time = Time.current
+    batch_cosine_calculations = 0
+    
     @commodity_references_cache.each do |commodity|
       next unless commodity.embedding.is_a?(Array)
       
@@ -818,11 +822,17 @@ class ExcelProcessorService
         dot_product += val * embedding[i]
       end
       
+      batch_cosine_calculations += 1
+      @cosine_calculation_count += 1
+      
       if dot_product > best_similarity
         best_similarity = dot_product
         best_match = commodity
       end
     end
+    
+    elapsed_ms = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
+    Rails.logger.info "⏱️ [TIMING] Cosine similarity calculations: #{batch_cosine_calculations} calculations in #{elapsed_ms}ms" if elapsed_ms > 1
     
     best_match
     end
@@ -1055,6 +1065,8 @@ class ExcelProcessorService
     total_time = ((Time.current - @process_start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     
     Rails.logger.info "📊 [PERFORMANCE SUMMARY] Processing completed in #{total_time}ms"
+    Rails.logger.info "📊 [COSINE SIMILARITY] Total cosine similarity calculations: #{@cosine_calculation_count}"
+    
     @performance_metrics.each do |operation, time_ms|
       percentage = ((time_ms / total_time) * 100).round(1)
       Rails.logger.info "📊   #{operation}: #{time_ms}ms (#{percentage}%)"
@@ -1065,6 +1077,9 @@ class ExcelProcessorService
       slowest = @performance_metrics.max_by { |_, time| time }
       Rails.logger.info "🐌 [BOTTLENECK] Slowest operation: #{slowest[0]} (#{slowest[1]}ms)"
     end
+    
+    # Additional tracking for cosine similarity operations
+    Rails.logger.info "🔍 [COSINE SIMILARITY] Detailed timing information has been logged throughout the process"
   end
 
   # Detectar columna GLOBAL_COMM_CODE_DESC con nombre exacto

@@ -71,6 +71,8 @@ class CommodityReference < ApplicationRecord
     # OPTIMIZACIÓN: Usar PostgreSQL nativo para calcular similitud de coseno
     # Esto evita cargar 2999 records en memoria y hacer cálculos en Ruby
     
+    start_time = Time.current
+    
     # Convertir array de Ruby a formato JSON para PostgreSQL
     query_embedding_json = description_embedding.to_json
     
@@ -92,6 +94,9 @@ class CommodityReference < ApplicationRecord
     
     # Ejecutar query con parámetros preparados para seguridad
     records = find_by_sql([similarity_sql, query_embedding_json, limit])
+    
+    elapsed_ms = ((Time.current - start_time) * 1000).round(2)
+    Rails.logger.info "⏱️ [TIMING] PostgreSQL cosine similarity search: #{records.size} results in #{elapsed_ms}ms"
     
     # Log para monitoreo de performance (opcional)
     Rails.logger.debug "🚀 [PERFORMANCE] PostgreSQL similarity search completed for #{limit} results"

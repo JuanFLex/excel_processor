@@ -28,7 +28,11 @@ module CommodityAnalysis
         
         similares = CommodityReference.find_most_similar(item.embedding, ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT)
         
-        similares.map.with_index do |commodity, index|
+        start_time = Time.current
+        calculations_count = 0
+        
+        result = similares.map.with_index do |commodity, index|
+          calculations_count += 1
           similarity = calculate_cosine_similarity(item.embedding, commodity.embedding)
           
           {
@@ -43,6 +47,11 @@ module CommodityAnalysis
             typical_mpns: commodity.typical_mpn_by_manufacturer
           }
         end
+        
+        elapsed_ms = ((Time.current - start_time) * 1000).round(2)
+        Rails.logger.info "⏱️ [TIMING] Similar commodities data formatting: #{calculations_count} cosine calculations in #{elapsed_ms}ms" if elapsed_ms > 1
+        
+        result
       end
     end
   end
