@@ -10,6 +10,8 @@ class ExcelProcessorService
     @aml_total_demand_cache = {} # Cache para Total Demand lookups
     @aml_min_price_cache = {} # Cache para Min Price lookups
     @existing_items_lookup = {} # NUEVO: Lookup table para remapping de líneas individuales
+    @performance_metrics = {} # Performance timing tracker
+    @process_start_time = Time.current
   end
   
   def process_upload(file, manual_remap = nil)
@@ -18,9 +20,9 @@ class ExcelProcessorService
       @processed_file.update(status: 'processing')
       
       # Pre-cargar cross-references, commodities, proposal quotes para optimizar performance
-      load_cross_references_cache
-      load_commodity_references_cache
-      load_proposal_quotes_cache
+      track_time('Cross References Cache Load') { load_cross_references_cache }
+      track_time('Commodity References Cache Load') { load_commodity_references_cache }
+      track_time('Proposal Quotes Cache Load') { load_proposal_quotes_cache }
       
       # NUEVO: Si es remapping, crear lookup table de items existentes antes de limpiarlos
       @existing_items_lookup = {}
@@ -74,7 +76,9 @@ class ExcelProcessorService
         Rails.logger.info "🔄 [DEMO] Using manual column mapping from remap..."
         column_mapping = manual_remap[:column_mapping]
       else
-        column_mapping = OpenaiService.identify_columns(sample_rows, ExcelProcessorConfig::TARGET_COLUMNS)
+        column_mapping = track_time('Column Mapping (OpenAI)') do
+          OpenaiService.identify_columns(sample_rows, ExcelProcessorConfig::TARGET_COLUMNS)
+        end
         
         # NUEVO: Detectar específicamente columnas de jerarquía de commodities
         level1_column = Level3DetectorService.detect_level1_column(sample_rows)
@@ -154,7 +158,7 @@ class ExcelProcessorService
         unique_items = processed_items.map { |item| item['item'] }.compact.uniq
         unique_item_mpn_pairs = processed_items.map { |item| [item['item'], item['mfg_partno']] }
           .select { |item, mpn| item.present? && mpn.present? }.uniq
-        load_aml_cache_for_items(unique_items, unique_item_mpn_pairs)
+        track_time('AML Cache Load (SQL Server)') { load_aml_cache_for_items(unique_items, unique_item_mpn_pairs) }
         
         # Crear los items procesados en lote
         insert_items_batch(processed_items)
@@ -162,11 +166,14 @@ class ExcelProcessorService
       
       
       # Generar el archivo Excel de salida
-      generate_output_file
+      track_time('Excel File Generation') { generate_output_file }
       
       
       # Actualizar estado
       @processed_file.update(status: 'completed', processed_at: Time.current)
+      
+      # Log performance summary
+      log_performance_summary
       
       { success: true }
     rescue => e
@@ -276,7 +283,9 @@ class ExcelProcessorService
     description_embeddings = {}
     if valid_descriptions.any?
       Rails.logger.info "🚀 [DEMO] Sending #{valid_descriptions.size} descriptions to OpenAI for analysis..."
-      embeddings = OpenaiService.get_embeddings(valid_descriptions)
+      embeddings = track_time('Embeddings Generation (OpenAI)') do
+        OpenaiService.get_embeddings(valid_descriptions)
+      end
       Rails.logger.info "⚡ [DEMO] Embeddings generated! Each description now has a #{embeddings.first&.size || 0}-dimensional 'fingerprint'"
       
       description_indices.each_with_index do |row_idx, embed_idx|
@@ -1041,6 +1050,33 @@ class ExcelProcessorService
     values
   end
   
+  # Performance timing helper
+  def track_time(operation_name)
+    start_time = Time.current
+    result = yield
+    elapsed_ms = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
+    @performance_metrics[operation_name] = elapsed_ms
+    Rails.logger.info "⏱️ [TIMING] #{operation_name}: #{elapsed_ms}ms"
+    result
+  end
+
+  # Log final performance summary
+  def log_performance_summary
+    total_time = ((Time.current - @process_start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
+    
+    Rails.logger.info "📊 [PERFORMANCE SUMMARY] Processing completed in #{total_time}ms"
+    @performance_metrics.each do |operation, time_ms|
+      percentage = ((time_ms / total_time) * 100).round(1)
+      Rails.logger.info "📊   #{operation}: #{time_ms}ms (#{percentage}%)"
+    end
+    
+    # Identify bottlenecks
+    if @performance_metrics.any?
+      slowest = @performance_metrics.max_by { |_, time| time }
+      Rails.logger.info "🐌 [BOTTLENECK] Slowest operation: #{slowest[0]} (#{slowest[1]}ms)"
+    end
+  end
+
   # Detectar columna GLOBAL_COMM_CODE_DESC con nombre exacto
   def detect_exact_global_comm_code_column(sample_rows)
     return nil if sample_rows.empty?
