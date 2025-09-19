@@ -54,3 +54,6 @@ yarn-error.log*
 
 # Claude Code documentation
 CLAUDE.md
+
+#Qwen Code documentation
+QWEN.md
