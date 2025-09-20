@@ -104,7 +104,7 @@ class CommodityAnalysisService
         **Texto de Embedding Utilizado:**
         #{data[:texto_original]}
         
-        ## TOP 5 COMMODITIES SIMILARES
+        ## TOP #{ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT} COMMODITIES SIMILARES
         #{format_similares_for_prompt(data[:similares])}
         
         ## SOLICITUD DE ANÁLISIS
@@ -156,7 +156,7 @@ class CommodityAnalysisService
         **Texto de Embedding Utilizado:**
         #{data[:texto_original]}
         
-        ## TOP 5 COMMODITIES SIMILARES
+        ## TOP #{ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT} COMMODITIES SIMILARES
         #{format_similares_for_prompt(data[:similares])}
         
         ## INSTRUCCIONES PARA RESPUESTA JSON

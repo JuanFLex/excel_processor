@@ -16,7 +16,7 @@ module CommodityAnalysis
           current_commodity: item.commodity,
           current_scope: item.scope,
           original_embedding_text: item.recreate_embedding_text,
-          top_5_similares: similares_data,
+          top_similares: similares_data,
           ai_analysis: ai_analysis,
           success: true,
           generated_at: Time.current

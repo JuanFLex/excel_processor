@@ -53,9 +53,9 @@ class CommodityAnalyzerConsole
       puts
       
       if item.embedding.present?
-        similares = CommodityReference.find_most_similar(item.embedding, 5)
+        similares = CommodityReference.find_most_similar(item.embedding, ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT)
         
-        puts "🎯 TOP 5 SIMILAR COMMODITIES & THEIR EMBEDDING TEXTS:"
+        puts "🎯 TOP #{ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT} SIMILAR COMMODITIES & THEIR EMBEDDING TEXTS:"
         puts
         
         similares.each_with_index do |commodity, index|
@@ -95,8 +95,8 @@ class CommodityAnalyzerConsole
       puts result[:original_embedding_text]
       puts
       
-      puts "🎯 TOP 5 SIMILAR COMMODITIES:"
-      result[:top_5_similares].each do |sim|
+      puts "🎯 TOP #{ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT} SIMILAR COMMODITIES:"
+      result[:top_similares].each do |sim|
         puts "#{sim[:posicion]}. #{sim[:nombre]} (#{sim[:similitud_porcentaje]}%)"
         puts "   Scope: #{sim[:scope]} | Category: #{sim[:categoria]}"
         puts "   Keywords: #{sim[:keywords] || 'None'}"
