@@ -186,10 +186,15 @@ class ProcessedFile < ApplicationRecord
         # Escapar y formatear partnos para SQL Server
         escaped_partnos = partnos_chunk.map { |pn| "'#{pn.to_s.gsub("'", "''")}'" }.join(',')
         
+        # Apply component grade filter based on processed file configuration
+        include_medical_auto = self.include_medical_auto_grades || false
+        grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+
         # NUEVO: Agregar timeout explícito y usar execute para mayor control
         result = ItemLookup.connection.execute(
-          "SET LOCK_TIMEOUT 60000; SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses 
-           WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL"
+          "SET LOCK_TIMEOUT 60000; SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses
+           WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL
+           #{grade_filter}"
         ).to_a
         
         chunk_results = result.flatten.to_set

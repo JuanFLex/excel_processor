@@ -509,13 +509,18 @@ class FileUploadsController < ApplicationController
       
       # Load Cross Reference cache
       if unique_mpns.any?
+        # Apply component grade filter based on processed file configuration
+        include_medical_auto = @processed_file&.include_medical_auto_grades || false
+        grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+
         unique_mpns.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_mpns|
           quoted_mpns = batch_mpns.map { |mpn| "'#{mpn.gsub("'", "''")}'" }.join(',')
-          
+
           result = ItemLookup.connection.select_all(
-            "SELECT CROSS_REF_MPN, INFINEX_MPN 
-             FROM INX_dataLabCrosses 
-             WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL"
+            "SELECT CROSS_REF_MPN, INFINEX_MPN
+             FROM INX_dataLabCrosses
+             WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL
+             #{grade_filter}"
           )
           
           result.rows.each do |row|
