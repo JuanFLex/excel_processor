@@ -16,25 +16,29 @@ class ItemLookup < ApplicationRecord
 
     establish_connection(SQL_SERVER_CONFIG)
 
-    # Método simple para lookup por SUPPLIER_PN 
-    def self.lookup_by_supplier_pn(mfg_partno)
+    # Método simple para lookup por SUPPLIER_PN
+    def self.lookup_by_supplier_pn(mfg_partno, include_medical_auto_grades: false)
       # Switch a mock si está configurado
       if ENV['MOCK_SQL_SERVER'] == 'true'
-        return MockItemLookup.lookup_by_supplier_pn(mfg_partno)
+        return MockItemLookup.lookup_by_supplier_pn(mfg_partno, include_medical_auto_grades: include_medical_auto_grades)
       end
-      
+
       return nil if mfg_partno.blank?
+
+      # Construir la condición adicional para excluir MEDICAL y AUTO grades
+      grade_filter = include_medical_auto_grades ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
 
       result = connection.select_all(
         "SELECT SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG
         FROM (
-            select  
+            select
                 ROW_NUMBER() OVER(PARTITION BY SUPPLIER_PN, CROSS_REF_MFG ORDER BY INFINEX_COST ASC) AS RN,
                 *
-            from INX_dataLabCrosses 
-            WHERE CROSS_REF_MPN = '#{mfg_partno}' 
-                AND INFINEX_MPN IS NOT NULL 
+            from INX_dataLabCrosses
+            WHERE CROSS_REF_MPN = '#{mfg_partno}'
+                AND INFINEX_MPN IS NOT NULL
                 AND LTRIM(RTRIM(INFINEX_MPN)) <> ''
+                #{grade_filter}
             ) QUERY
             WHERE RN = 1"
       )

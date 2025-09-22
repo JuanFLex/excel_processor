@@ -20,6 +20,9 @@ class FileUploadsController < ApplicationController
     
     # Guardar configuración del Total Demand lookup
     @processed_file.enable_total_demand_lookup = file_params[:enable_total_demand_lookup] == '1'
+
+    # Guardar configuración del Component Grade filtering
+    @processed_file.include_medical_auto_grades = file_params[:include_medical_auto_grades] == '1'
     
     if @processed_file.save
       # ACTUALIZADO: Guardar archivo original en Active Storage
@@ -236,7 +239,7 @@ class FileUploadsController < ApplicationController
   private
   
   def file_params
-    params.require(:file_upload).permit(:file, :volume_multiplier_enabled, :volume_multiplier, :enable_total_demand_lookup)
+    params.require(:file_upload).permit(:file, :volume_multiplier_enabled, :volume_multiplier, :enable_total_demand_lookup, :include_medical_auto_grades)
   end
   
   # NUEVO: Parámetros para remapeo

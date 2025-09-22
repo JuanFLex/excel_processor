@@ -62,17 +62,17 @@ class MockItemLookup
     }
   end
   
-  def self.lookup_by_supplier_pn(mfg_partno)
+  def self.lookup_by_supplier_pn(mfg_partno, include_medical_auto_grades: false)
     return nil if mfg_partno.blank?
-    
+
     result = mock_crosses[mfg_partno]
-    
+
     if result
-      Rails.logger.info "🎭 [MOCK SQL] Found cross-reference for '#{mfg_partno}' → #{result[:mpn]}"
-    else  
+      Rails.logger.info "🎭 [MOCK SQL] Found cross-reference for '#{mfg_partno}' → #{result[:mpn]} (include_medical_auto_grades: #{include_medical_auto_grades})"
+    else
       Rails.logger.debug "🎭 [MOCK SQL] No cross-reference found for: #{mfg_partno}"
     end
-    
+
     result
   rescue => e
     Rails.logger.error "🎭 [MOCK SQL] Error in mock lookup: #{e.message}"

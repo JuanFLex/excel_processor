@@ -776,10 +776,15 @@ class ExcelProcessorService
       else
         # Cargar datos reales de SQL Server en una sola consulta
         begin
+          # Construir filtro de component grade basado en configuración del processed_file
+          include_medical_auto = @processed_file&.include_medical_auto_grades || false
+          grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+
           result = ItemLookup.connection.select_all(
             "SELECT DISTINCT CROSS_REF_MPN, SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG
              FROM INX_dataLabCrosses
-             WHERE CROSS_REF_MPN IS NOT NULL"
+             WHERE CROSS_REF_MPN IS NOT NULL
+             #{grade_filter}"
           )
 
           result.rows.each do |row|

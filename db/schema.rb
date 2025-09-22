@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_18_181430) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_22_134416) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -78,6 +78,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_18_181430) do
     t.text "error_message"
     t.integer "volume_multiplier"
     t.boolean "enable_total_demand_lookup"
+    t.boolean "include_medical_auto_grades"
     t.index ["status"], name: "index_processed_files_on_status"
   end
 
