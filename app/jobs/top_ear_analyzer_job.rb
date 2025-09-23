@@ -64,16 +64,47 @@ class TopEarAnalyzerJob < ApplicationJob
     total_time_ms = ((Time.current - start_time) * 1000).round(2)
     corrections_count = results.count { |r| r[:correction_applied] }
     avg_time_per_item = results.any? ? (results.sum { |r| r[:analysis_time_ms] || 0 } / results.count).round(2) : 0
-    
+
     Rails.logger.info "🎯 [AUTO-AI] Analysis complete. #{corrections_count}/#{results.count} items corrected"
     Rails.logger.info "⏱️ [TIMING] Total Top EAR Analysis: #{total_time_ms}ms"
     Rails.logger.info "⏱️ [TIMING] Average per item: #{avg_time_per_item}ms"
-    
+
     if results.any?
       slowest_item = results.max_by { |r| r[:analysis_time_ms] || 0 }
       Rails.logger.info "🐌 [BOTTLENECK] Slowest item analysis: #{slowest_item[:analysis_time_ms]}ms"
     end
-    
+
+    # Regenerate Excel file if any corrections were applied
+    if corrections_count > 0
+      Rails.logger.info "🔄 [AUTO-AI] Regenerating Excel file due to #{corrections_count} corrections"
+      regenerate_excel_file(processed_file)
+    end
+
     results
+  end
+
+  private
+
+  def regenerate_excel_file(processed_file)
+    start_time = Time.current
+
+    begin
+      # Delete old Excel file if it exists
+      if processed_file.result_file_path.present? && File.exist?(processed_file.result_file_path)
+        File.delete(processed_file.result_file_path)
+        Rails.logger.info "🗑️ [AUTO-AI] Deleted old Excel file: #{processed_file.result_file_path}"
+      end
+
+      # Create new Excel processor service and generate output
+      excel_service = ExcelProcessorService.new(processed_file)
+      excel_service.generate_output_file
+
+      generation_time_ms = ((Time.current - start_time) * 1000).round(2)
+      Rails.logger.info "✅ [AUTO-AI] Excel file regenerated successfully (#{generation_time_ms}ms)"
+
+    rescue => e
+      Rails.logger.error "❌ [AUTO-AI] Error regenerating Excel file: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+    end
   end
 end
