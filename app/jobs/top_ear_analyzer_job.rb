@@ -1,3 +1,5 @@
+require 'set'
+
 class TopEarAnalyzerJob < ApplicationJob
   queue_as :default
   
@@ -95,9 +97,9 @@ class TopEarAnalyzerJob < ApplicationJob
         Rails.logger.info "🗑️ [AUTO-AI] Deleted old Excel file: #{processed_file.result_file_path}"
       end
 
-      # Create new Excel processor service and generate output
-      excel_service = ExcelProcessorService.new(processed_file)
-      excel_service.generate_output_file
+      # Use the same logic as export_filtered but for all items
+      file_path = generate_excel_from_items(processed_file)
+      processed_file.update(result_file_path: file_path)
 
       generation_time_ms = ((Time.current - start_time) * 1000).round(2)
       Rails.logger.info "✅ [AUTO-AI] Excel file regenerated successfully (#{generation_time_ms}ms)"
@@ -106,5 +108,76 @@ class TopEarAnalyzerJob < ApplicationJob
       Rails.logger.error "❌ [AUTO-AI] Error regenerating Excel file: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
     end
+  end
+
+  def generate_excel_from_items(processed_file)
+    temp_file_path = Rails.root.join('storage', "processed_#{processed_file.id}_#{Time.current.to_i}.xlsx")
+
+    items = processed_file.processed_items.to_a
+
+    package = Axlsx::Package.new
+    workbook = package.workbook
+
+    workbook.add_worksheet(name: "Processed Items") do |sheet|
+      # Same headers as original
+      headers = [
+        'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME',
+        'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE',
+        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag',
+        'Potential Coreworks Cross', 'EAR', 'EAR Threshold Status',
+        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number',
+        'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
+      ]
+
+      # Define styles matching original Excel format
+      header_style = workbook.styles.add_style(
+        bg_color: "FA4616",  # Orange for quote form columns
+        fg_color: "FFFFFF",
+        b: true,
+        alignment: { horizontal: :center },
+        font_name: "Century Gothic",
+        sz: 11
+      )
+
+      auxiliary_style = workbook.styles.add_style(
+        bg_color: "5498c6",  # Blue for auxiliary columns
+        fg_color: "FFFFFF",
+        b: true,
+        alignment: { horizontal: :center },
+        font_name: "Century Gothic",
+        sz: 11
+      )
+
+      # Define which columns are from Quote form (use ORANGE)
+      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'Commodity']
+
+      # Create array of styles based on column name
+      header_styles = headers.map do |header|
+        quote_form_columns.include?(header) ? header_style : auxiliary_style
+      end
+
+      # Add header with column-specific styling
+      sheet.add_row headers, style: header_styles
+
+      # Add data (simplified without SQL lookups for regeneration speed)
+      item_tracker = Set.new
+      items.each do |item|
+        # Track unique items (same logic as main generation)
+        unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
+        item_tracker.add(item.item)
+
+        sheet.add_row [
+          item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
+          item.description, item.site, item.std_cost, item.last_purchase_price,
+          item.last_po, item.eau, item.commodity, item.scope, unique_flg,
+          '', item.ear_value, item.ear_threshold_status,
+          'NO', '', '', '',
+          '', ''
+        ]
+      end
+    end
+
+    package.serialize(temp_file_path)
+    temp_file_path.to_s
   end
 end
