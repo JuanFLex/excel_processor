@@ -142,9 +142,9 @@ class CommodityAnalysisService
     def build_auto_correction_prompt(data)
       <<~PROMPT
         Eres un experto en clasificación de componentes electrónicos y análisis de commodities.
-        
-        Analiza la asignación de commodity para este componente y determina si necesita corrección automática.
-        
+
+        Analiza la asignación de commodity para este componente y proporciona recomendaciones detalladas.
+
         ## INFORMACIÓN DEL COMPONENTE
         **ID:** #{data[:item_id]}
         **Descripción:** #{data[:item_description]}
@@ -152,34 +152,41 @@ class CommodityAnalysisService
         **MPN:** #{data[:item_mpn]}
         **Commodity Actual:** #{data[:commodity_asignado]}
         **Scope Actual:** #{data[:scope_asignado]}
-        
+
         **Texto de Embedding Utilizado:**
         #{data[:texto_original]}
-        
+
         ## TOP #{ExcelProcessorConfig::SIMILARITY_ANALYSIS_LIMIT} COMMODITIES SIMILARES
         #{format_similares_for_prompt(data[:similares])}
-        
-        ## INSTRUCCIONES PARA RESPUESTA JSON
-        
-        Analiza si la asignación actual es correcta o necesita cambio. SOLO recomienda cambio si:
-        1. Hay evidencia clara de error en la asignación actual
-        2. Existe un commodity similar que sea claramente mejor basado en MPN, descripción y fabricante
-        3. El MPN o descripción claramente indica otro tipo de componente
-        
-        Responde ÚNICAMENTE en formato JSON válido:
-        
+
+        ## SOLICITUD DE ANÁLISIS
+        Proporciona un análisis completo que incluya:
+
+        1. **Evaluación de la asignación actual**: ¿Es correcta? ¿Por qué?
+        2. **Análisis de coincidencias**: ¿Qué elementos del MPN, descripción o fabricante apoyan la asignación?
+        3. **Recomendaciones específicas**:
+           - ¿Mantener o cambiar la asignación?
+           - ¿Qué keywords añadir a las referencias?
+           - ¿Cómo mejorar el matching?
+        4. **Nivel de confianza**: Alto/Medio/Bajo con justificación
+
+        Sé específico y técnico en tus recomendaciones.
+
+        ## FORMATO DE RESPUESTA REQUERIDO
+
+        Después de tu análisis completo, incluye al final un bloque JSON con tu decisión final:
+
+        ```json
         {
           "should_correct": boolean,
           "confidence_level": "high|medium|low",
           "current_assignment_correct": boolean,
-          "recommended_commodity": "nombre_commodity",
-          "recommended_scope": "scope_name",
-          "reasoning": "explicación breve y técnica de la decisión",
-          "evidence": "elementos específicos del MPN/descripción que apoyan la decisión"
+          "recommended_commodity": "nombre_commodity_o_null",
+          "recommended_scope": "scope_name_o_null",
+          "reasoning": "resumen de tu análisis",
+          "evidence": "elementos clave que apoyan tu decisión"
         }
-        
-        Si should_correct es false, deja recommended_commodity y recommended_scope como null.
-        Sé conservador: solo recomienda cambios cuando estés muy seguro.
+        ```
       PROMPT
     end
     

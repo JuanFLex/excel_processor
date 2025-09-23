@@ -229,28 +229,41 @@ class OpenaiService
       if ENV['MOCK_OPENAI'] == 'true'
         return MockOpenaiService.get_completion_json(prompt, max_tokens)
       end
-      
+
       client = OpenAI::Client.new
-      
+
       response = client.chat(
         parameters: {
           model: COMPLETION_MODEL,
           messages: [
-            { role: "system", content: "You are an expert in electronic components classification and analysis. You provide structured JSON responses for automated processing." },
+            { role: "system", content: "You are an expert in electronic components classification and analysis. You provide detailed analysis followed by structured JSON decisions." },
             { role: "user", content: prompt }
           ],
           max_tokens: max_tokens,
-          temperature: 0.1,  # Low temperature for consistent analysis
-          response_format: { type: "json_object" }
+          temperature: 0.1  # Low temperature for consistent analysis
         }
       )
-      
+
       content = response.dig("choices", 0, "message", "content")
-      
+
       begin
-        JSON.parse(content)
+        # Extraer JSON del bloque de código markdown
+        json_match = content.match(/```json\s*(\{.*?\})\s*```/m)
+        if json_match
+          JSON.parse(json_match[1])
+        else
+          # Fallback: buscar JSON al final del texto
+          json_start = content.rindex('{')
+          json_end = content.rindex('}')
+          if json_start && json_end && json_end > json_start
+            JSON.parse(content[json_start..json_end])
+          else
+            raise JSON::ParserError, "No JSON found in response"
+          end
+        end
       rescue JSON::ParserError => e
         Rails.logger.error("Error parsing JSON response: #{e.message}")
+        Rails.logger.error("Full response: #{content}")
         {
           "should_correct" => false,
           "confidence_level" => "low",
