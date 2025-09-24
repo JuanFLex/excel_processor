@@ -216,7 +216,7 @@ class ProcessedFile < ApplicationRecord
         
         # Apply component grade filter based on processed file configuration
         include_medical_auto = self.include_medical_auto_grades || false
-        grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+        grade_filter = enable_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
 
         # NUEVO: Agregar timeout explícito y usar execute para mayor control
         result = ItemLookup.connection.execute(

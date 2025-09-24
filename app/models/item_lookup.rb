@@ -26,7 +26,8 @@ class ItemLookup < ApplicationRecord
       return nil if mfg_partno.blank?
 
       # Construir la condición adicional para excluir MEDICAL y AUTO grades
-      grade_filter = include_medical_auto_grades ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+      grade_filter = include_medical_auto_grades ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
+
 
       result = connection.select_all(
         "SELECT SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG

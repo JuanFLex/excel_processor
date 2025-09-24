@@ -147,7 +147,7 @@ class OpenaiService
         - STD_COST: Standard cost (number/price)
         - LAST_PURCHASE_PRICE: Last purchase price (number/price)
         - LAST_PO: Last purchase order price (number/price, NOT a date)
-        - EAU: Annual Estimated Usage (integer) may be Total Demand, Total Gross Demand, Qty, Qty peer, Qty Part
+        - EAU: Annual Estimated Usage (integer) may be Total Demand, Total Gross Demand, Qty, Qty per, Qty Part, Part Qty
         
         It is VERY IMPORTANT that the columns LAST_PO, STD_COST, and LAST_PURCHASE_PRICE MUST be numeric values (prices), NOT dates.
         

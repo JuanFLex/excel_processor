@@ -511,7 +511,7 @@ class FileUploadsController < ApplicationController
       if unique_mpns.any?
         # Apply component grade filter based on processed file configuration
         include_medical_auto = @processed_file&.include_medical_auto_grades || false
-        grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+        grade_filter = include_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
 
         unique_mpns.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_mpns|
           quoted_mpns = batch_mpns.map { |mpn| "'#{mpn.gsub("'", "''")}'" }.join(',')
