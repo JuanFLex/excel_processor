@@ -159,25 +159,123 @@ class TopEarAnalyzerJob < ApplicationJob
       # Add header with column-specific styling
       sheet.add_row headers, style: header_styles
 
-      # Add data (simplified without SQL lookups for regeneration speed)
+      # FIXED: Load SQL data for accurate EAR calculations and complete Excel data
+      sql_caches = load_sql_caches_for_regeneration(processed_file, items)
+
       item_tracker = Set.new
       items.each do |item|
         # Track unique items (same logic as main generation)
         unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
         item_tracker.add(item.item)
 
+        # Get SQL data for this item
+        total_demand_data = sql_caches[:total_demand][item.item.to_s.strip]
+        min_price_data = sql_caches[:min_price][item.item.to_s.strip]
+        cross_ref_mpn = sql_caches[:cross_ref][item.mfg_partno.to_s.strip] if item.mfg_partno
+
         sheet.add_row [
           item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
           item.description, item.site, item.std_cost, item.last_purchase_price,
           item.last_po, item.eau, item.commodity, item.scope, unique_flg,
-          '', item.ear_value, item.ear_threshold_status,
+          cross_ref_mpn, item.ear_value(total_demand_data, min_price_data), item.ear_threshold_status(total_demand_data, min_price_data),
           'NO', '', '', '',
-          '', ''
+          total_demand_data, min_price_data
         ]
       end
     end
 
     package.serialize(temp_file_path)
     temp_file_path.to_s
+  end
+
+  # Load SQL caches for Excel regeneration (same logic as ExcelProcessorService)
+  def load_sql_caches_for_regeneration(processed_file, items)
+    # Return mock data if using mock SQL server
+    if ENV['MOCK_SQL_SERVER'] == 'true'
+      return {
+        total_demand: {},
+        min_price: {},
+        cross_ref: {}
+      }
+    end
+
+    caches = {
+      total_demand: {},
+      min_price: {},
+      cross_ref: {}
+    }
+
+    # Extract unique items and MPNs
+    unique_items = items.map { |item| item.item.to_s.strip }.compact.uniq
+    unique_mpns = items.map { |item| item.mfg_partno.to_s.strip }.compact.uniq.reject(&:empty?)
+
+    Rails.logger.info "🔄 [REGEN] Loading SQL caches for #{unique_items.size} unique items and #{unique_mpns.size} unique MPNs"
+
+    begin
+      # Load Total Demand cache (only if enabled for this file)
+      if processed_file.enable_total_demand_lookup && unique_items.any?
+        unique_items.each_slice(1000) do |batch_items|
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+
+          result = ItemLookup.connection.select_all(
+            "SELECT ITEM, TOTAL_DEMAND
+             FROM ExcelProcessorAMLfind
+             WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
+          )
+
+          result.rows.each do |row|
+            caches[:total_demand][row[0]] = row[1]
+          end
+        end
+        Rails.logger.info "🔄 [REGEN] Loaded #{caches[:total_demand].size} Total Demand entries"
+      end
+
+      # Load Min Price cache
+      if unique_items.any?
+        unique_items.each_slice(1000) do |batch_items|
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+
+          result = ItemLookup.connection.select_all(
+            "SELECT ITEM, MIN_PRICE
+             FROM ExcelProcessorAMLfind
+             WHERE ITEM IN (#{quoted_items}) AND MIN_PRICE IS NOT NULL"
+          )
+
+          result.rows.each do |row|
+            caches[:min_price][row[0]] = row[1]
+          end
+        end
+        Rails.logger.info "🔄 [REGEN] Loaded #{caches[:min_price].size} Min Price entries"
+      end
+
+      # Load Cross Reference cache
+      if unique_mpns.any?
+        # Apply component grade filter based on processed file configuration
+        include_medical_auto = processed_file&.include_medical_auto_grades || false
+        grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+
+        unique_mpns.each_slice(1000) do |batch_mpns|
+          quoted_mpns = batch_mpns.map { |mpn| "'#{mpn.gsub("'", "''")}'" }.join(',')
+
+          result = ItemLookup.connection.select_all(
+            "SELECT CROSS_REF_MPN, INFINEX_MPN
+             FROM INX_dataLabCrosses
+             WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL
+             #{grade_filter}"
+          )
+
+          result.rows.each do |row|
+            caches[:cross_ref][row[0]] = row[1]
+          end
+        end
+        Rails.logger.info "🔄 [REGEN] Loaded #{caches[:cross_ref].size} Cross Reference entries"
+      end
+
+    rescue => e
+      Rails.logger.error "❌ [REGEN] Error loading SQL caches: #{e.message}"
+      # Return empty caches so regeneration continues without SQL data
+    end
+
+    caches
   end
 end
