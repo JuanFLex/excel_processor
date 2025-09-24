@@ -648,14 +648,25 @@ class ExcelProcessorService
       sheet.col_style(20, thousands_style, row_offset: 1) # Total Demand
       
       # Aplicar estilo especial a celdas EAR que usan fallbacks (Total Demand o Min Price)
+      # CRITICAL FIX: Ensure SQL caches are loaded before applying styles
       processed_items = @processed_file.processed_items.to_a
+      unique_items = processed_items.map(&:item).compact.uniq
+      unique_item_mpn_pairs = processed_items.map { |item| [item.item, item.mfg_partno] }.compact.uniq
+
+      # Reload caches if empty (in case they were cleared)
+      if @aml_total_demand_cache.empty? && @aml_min_price_cache.empty?
+        Rails.logger.info "🎨 [STYLE] Reloading SQL caches for EAR styling..."
+        load_aml_cache_for_items(unique_items, unique_item_mpn_pairs)
+      end
+
       processed_items.each_with_index do |item, index|
         row_num = index + 1  # +1 porque index es 0-based, pero rows también es 0-based (row 0 = header, row 1 = first data)
         total_demand_for_item = lookup_total_demand(item.item)
         min_price_for_item = lookup_min_price(item.item)
-        
+
         if item.ear_uses_fallback?(total_demand_for_item, min_price_for_item)
           sheet.rows[row_num].cells[14].style = ear_total_demand_style  # Columna EAR (O/15)
+          Rails.logger.debug "🟡 [STYLE] Applied yellow style to EAR for item #{item.item} (uses fallback)"
         end
       end
       

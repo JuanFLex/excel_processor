@@ -46,14 +46,28 @@ class ProcessedFile < ApplicationRecord
   
   def all_items_ear_by_scope
     # Agrupar TODOS los items por scope y sumar EAR (incluir duplicados para EAR real)
-    processed_items.group_by(&:scope).transform_values do |items| 
-      items.sum { |item| item.ear_value || 0 }
+    # FIXED: Load SQL data for accurate EAR calculations including Total Demand
+    sql_caches = load_sql_caches_for_analytics
+
+    processed_items.group_by(&:scope).transform_values do |items|
+      items.sum do |item|
+        total_demand = sql_caches[:total_demand][item.item.to_s.strip]
+        min_price = sql_caches[:min_price][item.item.to_s.strip]
+        item.ear_value(total_demand, min_price) || 0
+      end
     end
   end
-  
+
   def all_items_total_ear
     # Sumar EAR total de TODOS los items (incluir duplicados para EAR real)
-    processed_items.sum { |item| item.ear_value || 0 }
+    # FIXED: Load SQL data for accurate EAR calculations including Total Demand
+    sql_caches = load_sql_caches_for_analytics
+
+    processed_items.sum do |item|
+      total_demand = sql_caches[:total_demand][item.item.to_s.strip]
+      min_price = sql_caches[:min_price][item.item.to_s.strip]
+      item.ear_value(total_demand, min_price) || 0
+    end
   end
   
   def unique_items_array
@@ -81,11 +95,14 @@ class ProcessedFile < ApplicationRecord
   def calculate_analytics_optimized
     # Usar items únicos para conteos correctos, EAR se calcula después en calculate_metrics
     in_scope_items = unique_items.select { |item| item.scope == 'In scope' }
-    
+
     # PRE-CARGAR todos los lookups de una sola vez (como hace el servicio)
     quoted_items_set = load_quoted_items_bulk(in_scope_items.map(&:item))
     cross_ref_items_set = load_cross_ref_items_bulk(in_scope_items.map(&:mfg_partno))
-    
+
+    # FIXED: Load SQL data for accurate EAR calculations
+    sql_caches = load_sql_caches_for_analytics
+
     # Categorizar items en UN SOLO LOOP
     categories = {
       in_scope_total: [],
@@ -93,20 +110,24 @@ class ProcessedFile < ApplicationRecord
       meeting_threshold: [],
       crosses_threshold: []
     }
-    
+
     in_scope_items.each do |item|
       # Todos van a in_scope_total
       categories[:in_scope_total] << item
-      
+
       # Previously quoted
       if quoted_items_set.include?(item.item)
         categories[:previously_quoted] << item
       end
-      
-      # Meeting threshold  
-      if item.ear_value && item.ear_value >= ExcelProcessorConfig::EAR_THRESHOLD
+
+      # Meeting threshold - FIXED: Use SQL data for EAR calculation
+      total_demand = sql_caches[:total_demand][item.item.to_s.strip]
+      min_price = sql_caches[:min_price][item.item.to_s.strip]
+      ear_value = item.ear_value(total_demand, min_price)
+
+      if ear_value && ear_value >= ExcelProcessorConfig::EAR_THRESHOLD
         categories[:meeting_threshold] << item
-        
+
         # Crosses threshold (subset de meeting_threshold)
         if cross_ref_items_set.include?(item.mfg_partno)
           categories[:crosses_threshold] << item
@@ -126,19 +147,26 @@ class ProcessedFile < ApplicationRecord
   def calculate_metrics(unique_items_in_category)
     # Conteo: usar los items únicos que recibe
     count = unique_items_in_category.count
-    
+
     # EAR: buscar TODOS los items que correspondan a estos únicos
     if unique_items_in_category.any?
       item_numbers = unique_items_in_category.map(&:item).uniq
       scope_value = unique_items_in_category.first.scope
-      
+
+      # FIXED: Load SQL data for accurate EAR calculations
+      sql_caches = load_sql_caches_for_analytics
+
       # Buscar todos los items que coincidan por item number y scope
       all_matching_items = processed_items.where(item: item_numbers, scope: scope_value)
-      ear = all_matching_items.sum { |item| item.ear_value || 0 }
+      ear = all_matching_items.sum do |item|
+        total_demand = sql_caches[:total_demand][item.item.to_s.strip]
+        min_price = sql_caches[:min_price][item.item.to_s.strip]
+        item.ear_value(total_demand, min_price) || 0
+      end
     else
       ear = 0
     end
-    
+
     { ear: ear, count: count }
   end
   
@@ -209,5 +237,67 @@ class ProcessedFile < ApplicationRecord
       Rails.logger.error "Error loading cross references: #{e.message}"
       Set.new
     end
+  end
+
+  private
+
+  # Load SQL caches for analytics calculations (charts and graphs)
+  def load_sql_caches_for_analytics
+    # Return mock data if using mock SQL server
+    if ENV['MOCK_SQL_SERVER'] == 'true'
+      return {
+        total_demand: {},
+        min_price: {}
+      }
+    end
+
+    caches = {
+      total_demand: {},
+      min_price: {}
+    }
+
+    # Extract unique items from processed items
+    unique_items = processed_items.pluck(:item).compact.uniq.map(&:to_s).map(&:strip)
+    return caches if unique_items.empty?
+
+    begin
+      # Load Total Demand cache (only if enabled for this file)
+      if enable_total_demand_lookup
+        unique_items.each_slice(1000) do |batch_items|
+          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+
+          result = ItemLookup.connection.select_all(
+            "SELECT ITEM, TOTAL_DEMAND
+             FROM ExcelProcessorAMLfind
+             WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
+          )
+
+          result.rows.each do |row|
+            caches[:total_demand][row[0]] = row[1]
+          end
+        end
+      end
+
+      # Load Min Price cache
+      unique_items.each_slice(1000) do |batch_items|
+        quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
+
+        result = ItemLookup.connection.select_all(
+          "SELECT ITEM, MIN_PRICE
+           FROM ExcelProcessorAMLfind
+           WHERE ITEM IN (#{quoted_items}) AND MIN_PRICE IS NOT NULL"
+        )
+
+        result.rows.each do |row|
+          caches[:min_price][row[0]] = row[1]
+        end
+      end
+
+    rescue => e
+      Rails.logger.error "Error loading SQL caches for analytics: #{e.message}"
+      # Return empty caches so analytics continue without SQL data
+    end
+
+    caches
   end
 end
