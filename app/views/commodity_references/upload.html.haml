@@ -24,10 +24,13 @@
         %p.text-sm.text-gray-600.mb-4 Your CSV file must contain these exact column headers:
         
         .bg-gray-50.rounded-lg.p-4.mb-4
-          .grid.grid-cols-1.gap-2.text-xs.font-mono.text-gray-700
+          .grid.grid-cols-2.md:grid-cols-3.gap-2.text-xs.font-mono.text-gray-700
             - %w[GLOBAL_COMM_CODE_DESC LEVEL1_DESC LEVEL2_DESC LEVEL3_DESC].each do |col|
-              %span= col
-            %span Infinex Scope Status
+              %span.text-gray-800.font-medium= col
+            %span.text-gray-800.font-medium Infinex Scope Status
+            %span.text-blue-700.font-medium autograde_scope
+            - %w[KEYWORDS MFR LEVEL3_DESC_EXPANDED TYPICAL_MPN_BY_MANUFACTURER].each do |col|
+              %span.text-gray-600= col
 
         .border-l-4.border-blue-400.bg-blue-50.p-4.rounded-r-lg
           %h3.text-sm.font-medium.text-blue-800.mb-2 Important Notes
@@ -35,6 +38,7 @@
             %li • Column headers must match exactly (case-sensitive)
             %li • This file will replace all existing commodity references
             %li • Infinex Scope Status should be "In Scope" or "Out of Scope"
+            %li • autograde_scope should be "In Scope" or "Out of Scope" (used for Auto mode)
 
       / Submit Button
       .text-center.pt-4

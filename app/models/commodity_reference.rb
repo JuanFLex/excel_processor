@@ -1,6 +1,7 @@
 class CommodityReference < ApplicationRecord
   include SimilarityCalculable
   validates :level3_desc, presence: true
+  validates :autograde_scope, inclusion: { in: ['In scope', 'Out of scope'], allow_blank: true }
 
   # Atributo virtual para similitud de coseno calculada por PostgreSQL
   attr_accessor :cosine_similarity
@@ -118,12 +119,19 @@ class CommodityReference < ApplicationRecord
   end
 
   # NUEVO: Método para buscar scope por commodity
-  def self.scope_for_commodity(commodity_name, column_type = 'level3_desc')
+  def self.scope_for_commodity(commodity_name, column_type = 'level3_desc', auto_mode = false)
     record = find_by_commodity_exact(commodity_name, column_type)
     return 'Out of scope' unless record
     
-    # FIX: Usar comparación case-insensitive para manejar variaciones en capitalización
-    record.infinex_scope_status&.downcase == 'in scope' ? 'In scope' : 'Out of scope'
+    # Si está en modo AUTO, usar autograde_scope; si no, usar infinex_scope_status
+    scope_field = auto_mode && record.autograde_scope.present? ? 
+      record.autograde_scope : 
+      record.infinex_scope_status
+    
+    # Normalizar comparación (case-insensitive)
+    return 'Out of scope' if scope_field.blank?
+    
+    scope_field.downcase.strip == 'in scope' ? 'In scope' : 'Out of scope'
   end
 
   # OPTIMIZACIÓN: Buscar múltiples commodities en batch para evitar N+1 queries

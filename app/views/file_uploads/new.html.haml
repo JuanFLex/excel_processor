@@ -75,7 +75,7 @@
             .flex.items-center.justify-between
               %div
                 = form.label :include_medical_auto_grades, "Auto Grade Filter", class: "text-base font-medium text-gray-900 cursor-pointer", for: "component-grade-checkbox"
-                %p.text-sm.text-gray-600.mt-1 Filter cross-reference lookups by Auto vs Commercial grade
+                %p.text-sm.text-gray-600.mt-1 Filter lookups and classifications by Auto vs Commercial mode
               %div#component-grade-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
                 Commercial Only
 
@@ -83,7 +83,7 @@
           #component-grade-info.mt-4.pt-4.border-t.border-gray-100
             .bg-green-50.rounded-lg.p-4
               %p.text-xs.font-medium.text-green-800.mb-1 Current Filter Mode
-              %p#grade-filter-description.text-xs.text-green-700 Cross-reference queries will only include components with COMMERCIAL grade.de-filter-description.text-xs.text-green-700 Cross-reference queries will only include components with COMMERCIAL grade.
+              %p#grade-filter-description.text-xs.text-green-700 Using COMMERCIAL component grades for lookups and infinex scope for classifications.
     
     / Upload Area - Refined
     .border-2.border-dashed.border-gray-300.rounded-xl.p-8.text-center.hover:border-gray-400.transition-all.duration-200.hover:bg-gray-50.group
@@ -232,14 +232,16 @@
       const card = document.getElementById('component-grade-config-card');
 
       if (checkbox.checked) {
-          statusDiv.textContent = 'Auto Only';
+          // Modo AUTO - controla tanto lookups como scope
+          statusDiv.textContent = 'Auto Mode';
           statusDiv.className = 'text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium transition-all';
-          descriptionDiv.textContent = 'Cross-reference queries will only include components with AUTO grade.';
+          descriptionDiv.textContent = 'Using AUTO component grades for lookups and autograde scope for classifications.';
           card.classList.add('ring-2', 'ring-blue-200', 'border-blue-300');
       } else {
-          statusDiv.textContent = 'Commercial Only';
+          // Modo COMMERCIAL - controla tanto lookups como scope  
+          statusDiv.textContent = 'Commercial Mode';
           statusDiv.className = 'text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 font-medium transition-all';
-          descriptionDiv.textContent = 'Cross-reference queries will only include components with COMMERCIAL grade.';
+          descriptionDiv.textContent = 'Using COMMERCIAL component grades for lookups and infinex scope for classifications.';
           card.classList.remove('ring-2', 'ring-blue-200', 'border-blue-300');
       }
   }

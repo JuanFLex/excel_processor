@@ -117,14 +117,41 @@ class ExcelProcessorServiceTest < ActiveSupport::TestCase
       { text: "motor electrico bomba hidraulica", expected: 9 }, # 35 chars = 8.75 = 9 tokens
       { text: "", expected: 0 }            # Empty text
     ]
-    
+
     test_cases.each do |test_case|
       estimated = OpenaiService.send(:estimate_tokens, test_case[:text])
-      assert_equal test_case[:expected], estimated, 
+      assert_equal test_case[:expected], estimated,
         "Text '#{test_case[:text]}' should estimate #{test_case[:expected]} tokens, got #{estimated}"
     end
-    
+
     puts "✅ Token estimation accuracy tests passed"
+  end
+
+  test "autograde scope functionality in processing" do
+    # Crear commodity con ambos scope fields
+    CommodityReference.create!([
+      {
+        global_comm_code_desc: "AUTO PARTS",
+        level1_desc: "DIRECT MATERIALS",
+        level2_desc: "AUTOMOTIVE",
+        level3_desc: "AUTO COMPONENT",
+        infinex_scope_status: "Out of scope",
+        autograde_scope: "In scope"  # Diferente del infinex_scope_status
+      }
+    ])
+
+    # Test directo del método scope_for_commodity con diferentes modos
+    # Modo comercial (auto_mode = false)
+    result_commercial = CommodityReference.scope_for_commodity('AUTO COMPONENT', 'level3_desc', false)
+    assert_equal 'Out of scope', result_commercial
+    puts "✅ Commercial mode uses infinex_scope_status correctly"
+
+    # Modo auto (auto_mode = true)
+    result_auto = CommodityReference.scope_for_commodity('AUTO COMPONENT', 'level3_desc', true)
+    assert_equal 'In scope', result_auto
+    puts "✅ Auto mode uses autograde_scope correctly"
+
+    puts "✅ Autograde scope functionality tests passed"
   end
 
   private
