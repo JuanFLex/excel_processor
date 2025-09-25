@@ -1,11 +1,14 @@
 class CommodityReference < ApplicationRecord
   include SimilarityCalculable
   validates :level3_desc, presence: true
-  validates :autograde_scope, inclusion: { in: ['In scope', 'Out of scope'], allow_blank: true }
+  validates :autograde_scope, inclusion: { in: ['In Scope', 'Out of Scope'], allow_blank: true }
 
   # Atributo virtual para similitud de coseno calculada por PostgreSQL
   attr_accessor :cosine_similarity
   
+  # Callback para normalizar scope values antes de guardar
+  before_save :normalize_scope_values
+
   # Callback para regenerar embedding cuando se actualiza
   after_update :regenerate_embedding_if_needed
   
@@ -238,7 +241,35 @@ class CommodityReference < ApplicationRecord
   end
   
   private
-  
+
+  def normalize_scope_values
+    # Normalizar infinex_scope_status
+    if infinex_scope_status.present?
+      normalized_infinex = infinex_scope_status.to_s.strip.downcase
+      self.infinex_scope_status = case normalized_infinex
+                                  when 'in scope'
+                                    'In Scope'
+                                  when 'out of scope'
+                                    'Out of Scope'
+                                  else
+                                    infinex_scope_status
+                                  end
+    end
+
+    # Normalizar autograde_scope
+    if autograde_scope.present?
+      normalized_autograde = autograde_scope.to_s.strip.downcase
+      self.autograde_scope = case normalized_autograde
+                             when 'in scope'
+                               'In Scope'
+                             when 'out of scope'
+                               'Out of Scope'
+                             else
+                               autograde_scope
+                             end
+    end
+  end
+
   def regenerate_embedding_if_needed
     if saved_change_to_keyword? || saved_change_to_mfr? || saved_change_to_infinex_scope_status?
       changes_made = []
