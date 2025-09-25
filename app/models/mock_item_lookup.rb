@@ -107,4 +107,53 @@ class MockItemLookup
       }
     }
   end
+
+  # Mock data para opportunity lookup
+  def self.lookup_opportunity(opportunity_number)
+    return nil if opportunity_number.blank?
+
+    mock_opportunities = {
+      '126077' => {
+        opportunity_number: '126077',
+        opportunity_name: 'Kuiper - CW - AMZ7-KU-NAS1352N04EX4',
+        customer: 'JAX',
+        probability: 20,
+        targeted_quote_deadline: '2026-09-01',
+        product_application: 'Cloud',
+        bu: 'CEC',
+        stage: '2 - Development',
+        ear: 0.400,
+        site_1: 'MFG North Guad, MEX [SP]',
+        bd_owner: 'Rene Keehn',
+        sop_date: '2026-09-02'
+      },
+      '125717' => {
+        opportunity_number: '125717',
+        opportunity_name: 'AR1.2 and ORV3 Hardware - CW - Cortec Percision - Mitch',
+        customer: 'JAX',
+        probability: 20,
+        targeted_quote_deadline: '2026-02-01',
+        product_application: 'Cloud',
+        bu: 'CEC',
+        stage: '2 - Development',
+        ear: 0.000,
+        site_1: 'MFG Penang, MYS [P]',
+        bd_owner: 'Rene Keehn',
+        sop_date: nil
+      }
+    }
+
+    result = mock_opportunities[opportunity_number.to_s]
+
+    if result
+      Rails.logger.info "🎭 [MOCK SQL] Found opportunity '#{opportunity_number}' → #{result[:opportunity_name]}"
+    else
+      Rails.logger.debug "🎭 [MOCK SQL] No opportunity found for: #{opportunity_number}"
+    end
+
+    result
+  rescue => e
+    Rails.logger.error "🎭 [MOCK SQL] Error in mock opportunity lookup: #{e.message}"
+    nil
+  end
 end

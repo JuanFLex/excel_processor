@@ -39,8 +39,8 @@
                   - body += "- Meeting Threshold Parts: #{number_with_delimiter(@analytics[:meeting_threshold][:count])}\r\n"
                 - body += "\r\nPlease review and provide quote.\r\n\r\n"
                 - body += "Best regards"
-                - mailto_link = "mailto:lynn.moore@flexcoreworks.com?cc=linda.ramos@flex.com&subject=#{ERB::Util.url_encode(subject)}&body=#{ERB::Util.url_encode(body)}"
-                = link_to "Send to Quotes Team", mailto_link, class: "px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                %button#sendQuoteBtn.px-5.py-2.5.bg-blue-600.hover:bg-blue-700.text-white.text-sm.font-medium.rounded-md.transition-colors{onclick: "openOpportunityModal()"}
+                  Send to Quotes Team
                 = link_to "Remap & Reprocess", remap_file_upload_path(@processed_file), class: "px-5 py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors"
                 %button#downloadPdf.px-5.py-2.5.border.border-gray-300.hover:border-gray-400.text-gray-700.hover:text-gray-900.text-sm.font-medium.rounded-md.transition-colors{onclick: "downloadPDF()"}
                   Download PDF Report
@@ -78,7 +78,7 @@
                       %p.text-xs.text-gray-500.mt-1 Total parts
                   - scope_data = @processed_file.unique_items_by_scope
                   - scope_colors = scope_data.keys.map { |scope| scope == "In scope" ? "#10B981" : (scope == "Out of scope" ? "#EF4444" : "#F59E0B") }
-                  = pie_chart scope_data, height: "100%", colors: scope_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `${context.label}: ${context.raw} (${percentage}%)`; }' } } } }
+                  = pie_chart scope_data, height: "100%", colors: scope_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `$\{context.label}: $\{context.raw} ($\{percentage}%)`; }' } } } }
                 .mt-4.flex.justify-center.space-x-4
                   - scope_data.each do |scope, count|
                     - color = scope == "In scope" ? "#10B981" : (scope == "Out of scope" ? "#EF4444" : "#F59E0B")
@@ -99,7 +99,7 @@
                         = "$#{number_to_human(total_ear, precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe}"
                       %p.text-xs.text-gray-500.mt-1 Total EAR
                   - ear_colors = ear_by_scope.keys.map { |scope| scope == "In scope" ? "#10B981" : (scope == "Out of scope" ? "#EF4444" : "#F59E0B") }
-                  = pie_chart ear_by_scope, height: "100%", colors: ear_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const formatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }); const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `${context.label}: ${formatter.format(context.raw)} (${percentage}%)`; }' } } } }
+                  = pie_chart ear_by_scope, height: "100%", colors: ear_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const formatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }); const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `$\{context.label}: $\{formatter.format(context.raw)} ($\{percentage}%)`; }' } } } }
                 .mt-4.flex.justify-center.space-x-4
                   - ear_by_scope.each do |scope, ear_value|
                     - color = scope == "In scope" ? "#10B981" : (scope == "Out of scope" ? "#EF4444" : "#F59E0B")
@@ -219,6 +219,71 @@
           .mt-8.p-6.bg-red-50.border.border-red-200.rounded-lg
             %h3.text-sm.font-medium.text-red-900.mb-2 Processing Error
             %p.text-sm.text-red-700= @processed_file.error_message
+
+    -# Opportunity Number Modal
+    #opportunityModal.hidden.fixed.inset-0.bg-black.bg-opacity-50.z-50
+      .flex.items-center.justify-center.min-h-screen.p-4
+        .bg-white.rounded-lg.p-6.w-full.max-w-md
+          .flex.justify-between.items-center.mb-6
+            %h3.text-lg.font-semibold Opportunity Number Required
+            %button.text-gray-400.hover:text-gray-600.text-xl{onclick: "closeOpportunityModal()"}
+              ×
+
+          .mb-6
+            %label.block.text-sm.font-medium.text-gray-700.mb-2{for: "opportunityNumber"}
+              Opportunity Number (optional)
+            %input#opportunityNumber.block.w-full.border.border-gray-300.rounded-md.px-3.py-2.text-sm{type: "number", placeholder: "Enter 5+ digit opportunity number", min: "10000"}
+            %p.text-xs.text-gray-500.mt-1 Must be at least 5 digits (optional - can send without)
+            %p#opportunityError.text-xs.text-red-500.mt-1.hidden Invalid opportunity number
+            %p#opportunityStatus.text-xs.text-blue-600.mt-1.hidden Loading...
+
+          -# Opportunity Data Display
+          #opportunityData.mt-4.hidden
+            .bg-blue-50.border.border-blue-200.rounded-lg.p-4
+              %h4.text-sm.font-semibold.text-blue-900.mb-3.flex.items-center
+                %svg.w-4.h-4.mr-2{fill: "currentColor", viewBox: "0 0 20 20"}
+                  %path{d: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"}
+                Opportunity Found
+              .grid.grid-cols-1.md:grid-cols-2.gap-3.text-xs
+                .space-y-2
+                  %div
+                    %span.font-medium.text-gray-700 Customer:
+                    %span#oppCustomer.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 Stage:
+                    %span#oppStage.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 Probability:
+                    %span#oppProbability.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 EAR:
+                    %span#oppEar.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 BU:
+                    %span#oppBu.ml-1.text-gray-900 -
+                .space-y-2
+                  %div
+                    %span.font-medium.text-gray-700 BD Owner:
+                    %span#oppBdOwner.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 Quote Deadline:
+                    %span#oppDeadline.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 SOP Date:
+                    %span#oppSopDate.ml-1.text-gray-900 -
+                  %div
+                    %span.font-medium.text-gray-700 Site:
+                    %span#oppSite.ml-1.text-gray-900 -
+              .mt-3
+                %div
+                  %span.font-medium.text-gray-700 Project:
+                  %span#oppName.ml-1.text-gray-900.text-sm -
+
+          .flex.gap-3.justify-end
+            %button.px-4.py-2.bg-gray-300.text-gray-700.rounded.hover:bg-gray-400{onclick: "closeOpportunityModal()"}
+              Cancel
+            %button#sendQuoteWithOpportunity.px-4.py-2.bg-blue-600.text-white.rounded.hover:bg-blue-700{onclick: "validateAndSendQuote()"}
+              Send Quote
 
     -# Export Modal with Filters
     #exportModal.hidden.fixed.inset-0.bg-black.bg-opacity-50.z-50
@@ -370,6 +435,212 @@
           });
         }, 500); // Reduced timeout from 1000 to 500ms
       }
+
+      // Opportunity Number Modal Functions
+      let emailData = null;
+      let opportunityData = null;
+      let lookupTimeout = null;
+
+      function openOpportunityModal() {
+        // Generate email data directly here
+        emailData = {
+          to: "lynn.moore@flexcoreworks.com",
+          cc: "linda.ramos@flex.com",
+          subject: #{subject.to_json},
+          body: #{body.to_json}
+        };
+
+        console.log('Generated email data:', emailData);
+
+        // Show modal and setup auto-lookup
+        document.getElementById('opportunityModal').classList.remove('hidden');
+        document.getElementById('opportunityNumber').focus();
+        setupOpportunityLookup();
+      }
+
+      function closeOpportunityModal() {
+        document.getElementById('opportunityModal').classList.add('hidden');
+        document.getElementById('opportunityNumber').value = '';
+        document.getElementById('opportunityError').classList.add('hidden');
+        document.getElementById('opportunityStatus').classList.add('hidden');
+        document.getElementById('opportunityData').classList.add('hidden');
+        clearTimeout(lookupTimeout);
+        opportunityData = null;
+      }
+
+      function setupOpportunityLookup() {
+        const input = document.getElementById('opportunityNumber');
+
+        input.addEventListener('input', function() {
+          const value = input.value.trim();
+
+          // Clear previous timeout
+          clearTimeout(lookupTimeout);
+
+          // Reset displays
+          document.getElementById('opportunityError').classList.add('hidden');
+          document.getElementById('opportunityStatus').classList.add('hidden');
+          document.getElementById('opportunityData').classList.add('hidden');
+
+          // If empty or less than 5 digits, don't lookup
+          if (!value || value.length < 5 || !/^\d+$/.test(value)) {
+            opportunityData = null;
+            return;
+          }
+
+          // Show loading after 1 second without typing
+          lookupTimeout = setTimeout(() => {
+            lookupOpportunity(value);
+          }, 1000);
+        });
+      }
+
+      function lookupOpportunity(opportunityNumber) {
+        const statusDiv = document.getElementById('opportunityStatus');
+        statusDiv.textContent = 'Looking up opportunity...';
+        statusDiv.classList.remove('hidden');
+
+        // Get CSRF token
+        const token = document.querySelector('[name="csrf-token"]').content;
+
+        fetch('/file_uploads/lookup_opportunity', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': token
+          },
+          body: JSON.stringify({ opportunity_number: opportunityNumber })
+        })
+        .then(response => response.json())
+        .then(data => {
+          statusDiv.classList.add('hidden');
+
+          if (data.success && data.data) {
+            // Show opportunity data
+            opportunityData = data.data;
+            displayOpportunityData(data.data);
+          } else {
+            // Show not found message
+            statusDiv.textContent = 'Opportunity not found (optional - can send without)';
+            statusDiv.className = 'text-xs text-amber-600 mt-1';
+            statusDiv.classList.remove('hidden');
+            opportunityData = null;
+          }
+        })
+        .catch(error => {
+          console.error('Lookup error:', error);
+          statusDiv.textContent = 'Lookup failed (optional - can send without)';
+          statusDiv.className = 'text-xs text-amber-600 mt-1';
+          statusDiv.classList.remove('hidden');
+          opportunityData = null;
+        });
+      }
+
+      function displayOpportunityData(data) {
+        // Update all the display fields
+        document.getElementById('oppCustomer').textContent = data.customer || '-';
+        document.getElementById('oppStage').textContent = data.stage || '-';
+        document.getElementById('oppProbability').textContent = data.probability ? data.probability + '%' : '-';
+        document.getElementById('oppEar').textContent = data.ear ? '$' + data.ear + 'M' : '-';
+        document.getElementById('oppBu').textContent = data.bu || '-';
+        document.getElementById('oppBdOwner').textContent = data.bd_owner || '-';
+        document.getElementById('oppDeadline').textContent = data.targeted_quote_deadline || '-';
+        document.getElementById('oppSopDate').textContent = data.sop_date || '-';
+        document.getElementById('oppSite').textContent = data.site_1 || '-';
+        document.getElementById('oppName').textContent = data.opportunity_name || '-';
+
+        // Show the data panel
+        document.getElementById('opportunityData').classList.remove('hidden');
+      }
+
+      function validateAndSendQuote() {
+        const opportunityNumber = document.getElementById('opportunityNumber').value.trim();
+        const errorDiv = document.getElementById('opportunityError');
+
+        // If empty, allow sending (optional field)
+        if (!opportunityNumber) {
+          sendQuoteEmail('', null);
+          closeOpportunityModal();
+          return;
+        }
+
+        // If has value, validate it
+        if (opportunityNumber.length < 5 || !/^\d+$/.test(opportunityNumber)) {
+          errorDiv.textContent = 'Please enter a valid number with at least 5 digits';
+          errorDiv.classList.remove('hidden');
+          return;
+        }
+
+        // Hide error and send email
+        errorDiv.classList.add('hidden');
+        sendQuoteEmail(opportunityNumber, opportunityData);
+        closeOpportunityModal();
+      }
+
+      function sendQuoteEmail(opportunityNumber, oppData) {
+        console.log('=== DEBUG sendQuoteEmail ===');
+        console.log('opportunityNumber:', opportunityNumber);
+        console.log('oppData:', oppData);
+        console.log('emailData:', emailData);
+
+        let updatedBody = emailData.body;
+        let updatedSubject = emailData.subject;
+
+        console.log('Initial body:', updatedBody);
+        console.log('Initial subject:', updatedSubject);
+
+        if (opportunityNumber && oppData) {
+          // Add comprehensive opportunity information
+          const oppSection = 'Opportunity Information:\r\n' +
+                            '- Opportunity Number: ' + opportunityNumber + '\r\n' +
+                            '- Customer: ' + (oppData.customer || 'N/A') + '\r\n' +
+                            '- Project: ' + (oppData.opportunity_name || 'N/A') + '\r\n' +
+                            '- Stage: ' + (oppData.stage || 'N/A') + '\r\n' +
+                            '- Probability: ' + (oppData.probability ? oppData.probability + '%' : 'N/A') + '\r\n' +
+                            '- EAR: ' + (oppData.ear ? '$' + oppData.ear + 'M' : 'N/A') + '\r\n' +
+                            '- Quote Deadline: ' + (oppData.targeted_quote_deadline || 'N/A') + '\r\n' +
+                            '- BD Owner: ' + (oppData.bd_owner || 'N/A') + '\r\n' +
+                            '- Target Site: ' + (oppData.site_1 || 'N/A') + '\r\n\r\n';
+
+          updatedBody = updatedBody.replace(
+            'Please review and provide quote.',
+            oppSection + 'Please review and provide quote.'
+          );
+
+          updatedSubject += ' - Opp#' + opportunityNumber;
+        } else if (opportunityNumber) {
+          // Just add number if no data found
+          updatedBody = updatedBody.replace(
+            'Please review and provide quote.',
+            'Opportunity Number: ' + opportunityNumber + '\r\n\r\nPlease review and provide quote.'
+          );
+          updatedSubject += ' - Opp#' + opportunityNumber;
+        }
+
+        // Create mailto link
+        const subject = encodeURIComponent(updatedSubject);
+        const body = encodeURIComponent(updatedBody);
+        const mailtoLink = 'mailto:' + emailData.to + '?cc=' + emailData.cc + '&subject=' + subject + '&body=' + body;
+
+        console.log('Final updatedBody:', updatedBody);
+        console.log('Final updatedSubject:', updatedSubject);
+        console.log('Final mailtoLink:', mailtoLink);
+
+        // Open email client
+        window.location.href = mailtoLink;
+      }
+
+      // Allow Enter key to submit
+      document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('opportunityNumber');
+        if (input) {
+          input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+              validateAndSendQuote();
+            }
+          });
+        }
+      });
 
 
     -# Auto-reload for processing files
