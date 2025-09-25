@@ -1,9 +1,37 @@
 class CommodityReferencesController < ApplicationController
   def index
     @commodities = CommodityReference.search(params[:search])
-                                   .order(:infinex_scope_status, :level2_desc)
-                                   .page(params[:page]).per(20)
+    
+    # Apply scope filter if present
+    if params[:scope_filter].present?
+      @commodities = @commodities.where(infinex_scope_status: params[:scope_filter])
+    end
+    
+    # Apply sorting if present
+    if params[:sort].present?
+      sort_column = params[:sort]
+      sort_direction = params[:direction] || 'asc'
+      
+      # Validate sort column to prevent SQL injection
+      valid_columns = %w[global_comm_code_desc level1_desc level2_desc level3_desc infinex_scope_status]
+      if valid_columns.include?(sort_column)
+        @commodities = @commodities.order("#{sort_column} #{sort_direction}")
+      else
+        @commodities = @commodities.order(:infinex_scope_status, :level2_desc)
+      end
+    else
+      @commodities = @commodities.order(:infinex_scope_status, :level2_desc)
+    end
+    
+    # For CSV export, return all records without pagination
+    if params[:format] == 'csv'
+      send_data @commodities.to_csv, filename: "commodity-references-#{Date.today}.csv"
+      return
+    end
+    
+    @commodities = @commodities.page(params[:page]).per(20)
     @search_query = params[:search]
+    @scope_filter = params[:scope_filter]
   end
   
   def upload

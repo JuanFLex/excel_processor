@@ -203,6 +203,19 @@ class CommodityReference < ApplicationRecord
     )
   end
   
+  # CSV export functionality
+  def self.to_csv
+    require 'csv'
+    attributes = %w{id global_comm_code_desc level1_desc level2_desc level3_desc infinex_scope_status keyword mfr level3_desc_expanded typical_mpn_by_manufacturer created_at updated_at}
+    
+    CSV.generate(headers: true) do |csv|
+      csv << attributes.map(&:humanize)
+      all.find_each do |commodity|
+        csv << attributes.map { |attr| commodity.send(attr) }
+      end
+    end
+  end
+  
   # Método para forzar regeneración de embedding
   def regenerate_embedding!
     Rails.logger.info "🔄 [EMBEDDING] Force regenerating embedding for commodity reference #{id}"

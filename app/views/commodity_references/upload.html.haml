@@ -1,28 +1,52 @@
-.min-h-screen.bg-white
+.min-h-screen.bg-gray-50
   .max-w-4xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
-    / Header
-    .mb-12
-      = link_to "← Back to References", commodity_references_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
-      %h1.text-2xl.font-medium.text-gray-900.mb-2 Upload Commodity References File
-      %p.text-sm.text-gray-600 Import commodity classifications and scope definitions
+    / Enhanced Header
+    .mb-10
+      = link_to "← Back to References", commodity_references_path, class: "text-sm text-blue-600 hover:text-blue-800 mb-2 inline-block font-medium"
+      %h1.text-3xl.font-bold.text-gray-900.mb-2 Upload Commodity References
+      %p.text-gray-600.mb-6 Import commodity classifications and scope definitions from a CSV file
+
+    / Status Messages
+    - if notice
+      .bg-green-50.border.border-green-200.text-green-700.px-4.py-3.rounded.mb-6
+        %p= notice
+    - if alert
+      .bg-red-50.border.border-red-200.text-red-700.px-4.py-3.rounded.mb-6
+        %p= alert
 
     / Upload Form
     = form_with(url: process_upload_commodity_references_path, method: :post, local: true, multipart: true, scope: :commodity_upload, class: "space-y-8") do |form|
       / Upload Area
-      .border-2.border-dashed.border-gray-300.rounded-lg.p-8.text-center.hover:border-gray-400.transition-colors
-        = form.file_field :file, class: "sr-only", id: "file-input", accept: ".csv", required: true, onchange: "updateFileName(this)"
-        %label.cursor-pointer{for: "file-input"}
-          %p.text-sm.text-gray-600.mb-4 Select your CSV file or drag and drop here
-          %span.inline-block.px-5.py-2.5.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-md.transition-colors
-            Choose File
-          %p.mt-4.text-xs.text-gray-500#file-name No file selected
-          %p.text-xs.text-gray-400.mt-1 Supports: .csv only
+      .bg-white.rounded-xl.shadow-sm.border.border-gray-200.p-1
+        .border-2.border-dashed.border-gray-300.rounded-lg.p-10.text-center.hover:border-blue-400.hover:bg-blue-50.transition-colors{"x-data" => "{}", "x-on:dragover.prevent" => "$event.target.classList.add('!border-blue-400', '!bg-blue-50')", "x-on:dragleave" => "$event.target.classList.remove('!border-blue-400', '!bg-blue-50')", "x-on:drop.prevent" => "$event.target.classList.remove('!border-blue-400', '!bg-blue-50'); document.getElementById('file-input').files = $event.dataTransfer.files; updateFileName(document.getElementById('file-input'))"}
+          = form.file_field :file, class: "sr-only", id: "file-input", accept: ".csv", required: true, "x-on:change" => "updateFileName(this)"
+          
+          %div{"x-show" => "!document.getElementById('file-input')?.files[0]"}
+            %svg.h-12.w-12.mx-auto.text-gray-400.mb-4{:fill => "none", :stroke => "currentColor", :viewBox => "0 0 24 24"}
+              %path{:stroke_linecap => "round", :stroke_linejoin => "round", :stroke_width => 2, :d => "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"}
+            %p.text-lg.font-medium.text-gray-700.mb-2 Drag and drop your CSV file here
+            %p.text-gray-500.mb-4 or
+            %button.inline-block.px-6.py-3.bg-blue-600.hover:bg-blue-700.text-white.font-medium.rounded-lg.transition-colors.shadow-sm{"x-on:click" => "document.getElementById('file-input').click()"}
+              Browse Files
+            %p.text-sm.text-gray-500.mt-4 Supported format: CSV only
 
-      / Required Columns
-      %div
-        %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-4 Required File Format
-        %p.text-sm.text-gray-600.mb-4 Your CSV file must contain these exact column headers:
+          %div{"x-show" => "document.getElementById('file-input')?.files[0]", "x-cloak" => "", class: "flex flex-col items-center"}
+            %svg.h-12.w-12.mx-auto.text-green-500.mb-3{:fill => "none", :stroke => "currentColor", :viewBox => "0 0 24 24"}
+              %path{:stroke_linecap => "round", :stroke_linejoin => "round", :stroke_width => 2, :d => "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"}
+            %p.text-lg.font-medium.text-gray-900#file-name.mb-1 
+            %p.text-sm.text-gray-500#file-size
+            %button.mt-4.text-sm.text-blue-600.hover:text-blue-800.font-medium{"x-on:click" => "document.getElementById('file-input').value = ''; updateFileName(document.getElementById('file-input')); $event.target.closest('form').reset();"}
+              Remove file
+            .mt-4
+              = form.submit "Upload and Process File", 
+                class: "px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-md"
+
+      / File Requirements Card
+      .bg-white.rounded-xl.shadow-sm.border.border-gray-200.p-6
+        %h2.text-lg.font-semibold.text-gray-800.mb-4 CSV File Requirements
+        %p.text-gray-600.mb-5 Your CSV file must contain these exact column headers in the specified order:
         
+
         .bg-gray-50.rounded-lg.p-4.mb-4
           .grid.grid-cols-2.md:grid-cols-3.gap-2.text-xs.font-mono.text-gray-700
             - %w[GLOBAL_COMM_CODE_DESC LEVEL1_DESC LEVEL2_DESC LEVEL3_DESC].each do |col|
@@ -32,55 +56,54 @@
             - %w[KEYWORDS MFR LEVEL3_DESC_EXPANDED TYPICAL_MPN_BY_MANUFACTURER].each do |col|
               %span.text-gray-600= col
 
-        .border-l-4.border-blue-400.bg-blue-50.p-4.rounded-r-lg
-          %h3.text-sm.font-medium.text-blue-800.mb-2 Important Notes
-          %ul.text-xs.text-blue-700.space-y-1
+
+        .border-l-4.border-blue-500.bg-blue-50.p-4.rounded-r-lg
+          %h3.text-sm.font-semibold.text-blue-800.mb-2 Important Guidelines
+          %ul.text-sm.text-blue-700.space-y-2
             %li • Column headers must match exactly (case-sensitive)
+
             %li • This file will replace all existing commodity references
             %li • Infinex Scope Status should be "In Scope" or "Out of Scope"
             %li • autograde_scope should be "In Scope" or "Out of Scope" (used for Auto mode)
 
-      / Submit Button
-      .text-center.pt-4
-        = form.submit "Process File", 
-          class: "px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer"
+      / Sample File Download
+      .bg-white.rounded-xl.shadow-sm.border.border-gray-200.p-6
+        .flex.flex-col.md:flex-row.md:items-center.md:justify-between.gap-4
+          .flex.items-start.gap-4
+            %div
+              %h3.text-lg.font-semibold.text-gray-800 Sample CSV File
+              %p.text-gray-600.mt-1 Download a sample file to see the required format
+            .flex.items-center.gap-2
+              %svg.h-5.w-5.text-gray-500{:fill => "none", :stroke => "currentColor", :viewBox => "0 0 24 24"}
+                %path{:stroke_linecap => "round", :stroke_linejoin => "round", :stroke_width => 2, :d => "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"}
+          = link_to "Download Sample File", "/sample_commodity_upload.csv", class: "px-5 py-2.5 bg-white border border-gray-300.hover:border-gray-400 text-gray-700.hover:text-gray-900 font-medium rounded-lg transition-colors shadow-sm", download: "sample_commodity_references.csv"
 
 :javascript
   function updateFileName(input) {
-      const fileName = input.files[0]?.name || 'No file selected';
+      const file = input.files[0];
       const fileNameEl = document.getElementById('file-name');
-      fileNameEl.textContent = fileName;
+      const fileSizeEl = document.getElementById('file-size');
       
-      if (input.files[0]) {
+      if (file) {
+          fileNameEl.textContent = file.name;
+          const fileSize = (file.size / (1024 * 1024)).toFixed(2); // Size in MB
+          fileSizeEl.textContent = fileSize + ' MB • ' + formatFileType(file.name);
+          
           fileNameEl.classList.remove('text-gray-500');
           fileNameEl.classList.add('text-gray-900', 'font-medium');
+          fileSizeEl.classList.remove('text-gray-400');
+          fileSizeEl.classList.add('text-gray-600');
+      } else {
+          fileNameEl.textContent = 'No file selected';
+          fileSizeEl.textContent = '';
+          
+          fileNameEl.classList.remove('text-gray-900', 'font-medium');
+          fileNameEl.classList.add('text-gray-500');
+          fileSizeEl.classList.remove('text-gray-600');
+          fileSizeEl.classList.add('text-gray-400');
       }
   }
 
-  // Drag and drop functionality
-  const dropZone = document.querySelector('.border-dashed');
-  const fileInput = document.getElementById('file-input');
-
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, preventDefaults, false);
-  });
-
-  function preventDefaults(e) {
-      e.preventDefault();
-      e.stopPropagation();
+  function formatFileType(filename) {
+      return '.' + filename.split('.').pop().toUpperCase();
   }
-
-  ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => dropZone.classList.add('border-gray-400', 'bg-gray-50'), false);
-  });
-
-  ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-gray-400', 'bg-gray-50'), false);
-  });
-
-  dropZone.addEventListener('drop', (e) => {
-      const dt = e.dataTransfer;
-      const files = dt.files;
-      fileInput.files = files;
-      updateFileName(fileInput);
-  });
