@@ -94,6 +94,6 @@ class CommodityReferencesController < ApplicationController
   private
   
   def commodity_params
-    params.require(:commodity_reference).permit(:keyword, :mfr, :infinex_scope_status, :level3_desc_expanded, :typical_mpn_by_manufacturer)
+    params.require(:commodity_reference).permit(:keyword, :mfr, :infinex_scope_status, :autograde_scope, :level3_desc_expanded, :typical_mpn_by_manufacturer)
   end
 end

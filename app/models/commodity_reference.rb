@@ -262,20 +262,15 @@ class CommodityReference < ApplicationRecord
 
     # Normalizar autograde_scope
     if autograde_scope.present?
-      Rails.logger.info "🔍 [DEBUG] Original autograde_scope: '#{autograde_scope}'"
       normalized_autograde = autograde_scope.to_s.strip.downcase
-      Rails.logger.info "🔍 [DEBUG] Normalized autograde_scope: '#{normalized_autograde}'"
-
       self.autograde_scope = case normalized_autograde
                              when 'in scope'
                                'In Scope'
                              when 'out of scope'
                                'Out of Scope'
                              else
-                               Rails.logger.warn "⚠️ [WARNING] Unknown autograde_scope value: '#{normalized_autograde}'"
                                autograde_scope
                              end
-      Rails.logger.info "🔍 [DEBUG] Final autograde_scope: '#{self.autograde_scope}'"
     end
   end
 
