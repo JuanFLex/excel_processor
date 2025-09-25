@@ -1,3 +1,57 @@
+:javascript
+  // Make functions globally available for Alpine.js
+  window.updateFileName = function(input) {
+      const file = input.files[0];
+      const fileNameEl = document.getElementById('file-name');
+      const fileSizeEl = document.getElementById('file-size');
+      const uploadButton = document.getElementById('upload-button');
+
+      if (file) {
+          fileNameEl.textContent = file.name;
+          const fileSize = (file.size / (1024 * 1024)).toFixed(2); // Size in MB
+          fileSizeEl.textContent = fileSize + ' MB • ' + window.formatFileType(file.name);
+
+          fileNameEl.classList.remove('text-gray-500');
+          fileNameEl.classList.add('text-gray-900', 'font-medium');
+          fileSizeEl.classList.remove('text-gray-400');
+          fileSizeEl.classList.add('text-gray-600');
+
+          // Enable upload button
+          if (uploadButton) {
+              uploadButton.disabled = false;
+              uploadButton.classList.remove('bg-gray-400');
+              uploadButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+          }
+      } else {
+          fileNameEl.textContent = 'No file selected';
+          fileSizeEl.textContent = '';
+
+          fileNameEl.classList.remove('text-gray-900', 'font-medium');
+          fileNameEl.classList.add('text-gray-500');
+          fileSizeEl.classList.remove('text-gray-600');
+          fileSizeEl.classList.add('text-gray-400');
+
+          // Disable upload button
+          if (uploadButton) {
+              uploadButton.disabled = true;
+              uploadButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+              uploadButton.classList.add('bg-gray-400');
+          }
+      }
+  };
+
+  window.formatFileType = function(filename) {
+      return '.' + filename.split('.').pop().toUpperCase();
+  };
+
+  // Initialize upload button state
+  document.addEventListener('DOMContentLoaded', function() {
+      const uploadButton = document.getElementById('upload-button');
+      if (uploadButton) {
+          uploadButton.disabled = true;
+      }
+  });
+
 .min-h-screen.bg-gray-50
   .max-w-4xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
     / Enhanced Header
@@ -18,8 +72,8 @@
     = form_with(url: process_upload_commodity_references_path, method: :post, local: true, multipart: true, scope: :commodity_upload, class: "space-y-8") do |form|
       / Upload Area
       .bg-white.rounded-xl.shadow-sm.border.border-gray-200.p-1
-        .border-2.border-dashed.border-gray-300.rounded-lg.p-10.text-center.hover:border-blue-400.hover:bg-blue-50.transition-colors{"x-data" => "{}", "x-on:dragover.prevent" => "$event.target.classList.add('!border-blue-400', '!bg-blue-50')", "x-on:dragleave" => "$event.target.classList.remove('!border-blue-400', '!bg-blue-50')", "x-on:drop.prevent" => "$event.target.classList.remove('!border-blue-400', '!bg-blue-50'); document.getElementById('file-input').files = $event.dataTransfer.files; updateFileName(document.getElementById('file-input'))"}
-          = form.file_field :file, class: "sr-only", id: "file-input", accept: ".csv", required: true, "x-on:change" => "updateFileName(this)"
+        .border-2.border-dashed.border-gray-300.rounded-lg.p-10.text-center.hover:border-blue-400.hover:bg-blue-50.transition-colors{"x-data" => "{}", "x-on:dragover.prevent" => "$event.target.classList.add('!border-blue-400', '!bg-blue-50')", "x-on:dragleave" => "$event.target.classList.remove('!border-blue-400', '!bg-blue-50')", "x-on:drop.prevent" => "$event.target.classList.remove('!border-blue-400', '!bg-blue-50'); document.getElementById('file-input').files = $event.dataTransfer.files; window.updateFileName(document.getElementById('file-input'))"}
+          = form.file_field :file, class: "sr-only", id: "file-input", accept: ".csv", required: true, onchange: "updateFileName(this)"
           
           %div{"x-show" => "!document.getElementById('file-input')?.files[0]"}
             %svg.h-8.w-8.mx-auto.text-gray-400.mb-4{:fill => "none", :stroke => "currentColor", :viewBox => "0 0 24 24", :style => "max-width: 2rem; max-height: 2rem;"}
@@ -35,7 +89,7 @@
               %path{:stroke_linecap => "round", :stroke_linejoin => "round", :stroke_width => 2, :d => "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"}
             %p.text-lg.font-medium.text-gray-900#file-name.mb-1
             %p.text-sm.text-gray-500#file-size
-            %button.mt-4.text-sm.text-blue-600.hover:text-blue-800.font-medium{type: "button", "x-on:click" => "document.getElementById('file-input').value = ''; updateFileName(document.getElementById('file-input')); $event.target.closest('form').reset();"}
+            %button.mt-4.text-sm.text-blue-600.hover:text-blue-800.font-medium{type: "button", onclick: "document.getElementById('file-input').value = ''; updateFileName(document.getElementById('file-input')); this.closest('form').reset();"}
               Remove file
 
       / Upload Button - Always visible
@@ -77,55 +131,3 @@
               %svg.h-5.w-5.text-gray-500{:fill => "none", :stroke => "currentColor", :viewBox => "0 0 24 24"}
                 %path{:stroke_linecap => "round", :stroke_linejoin => "round", :stroke_width => 2, :d => "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"}
           = link_to "Download Sample File", "/sample_commodity_upload.csv", class: "px-5 py-2.5 bg-white border border-gray-300.hover:border-gray-400 text-gray-700.hover:text-gray-900 font-medium rounded-lg transition-colors shadow-sm", download: "sample_commodity_references.csv"
-
-:javascript
-  document.addEventListener('DOMContentLoaded', function() {
-      const uploadButton = document.getElementById('upload-button');
-      if (uploadButton) {
-          uploadButton.disabled = true;
-      }
-  });
-
-  function updateFileName(input) {
-      const file = input.files[0];
-      const fileNameEl = document.getElementById('file-name');
-      const fileSizeEl = document.getElementById('file-size');
-      const uploadButton = document.getElementById('upload-button');
-
-      if (file) {
-          fileNameEl.textContent = file.name;
-          const fileSize = (file.size / (1024 * 1024)).toFixed(2); // Size in MB
-          fileSizeEl.textContent = fileSize + ' MB • ' + formatFileType(file.name);
-
-          fileNameEl.classList.remove('text-gray-500');
-          fileNameEl.classList.add('text-gray-900', 'font-medium');
-          fileSizeEl.classList.remove('text-gray-400');
-          fileSizeEl.classList.add('text-gray-600');
-
-          // Enable upload button
-          if (uploadButton) {
-              uploadButton.disabled = false;
-              uploadButton.classList.remove('bg-gray-400');
-              uploadButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
-          }
-      } else {
-          fileNameEl.textContent = 'No file selected';
-          fileSizeEl.textContent = '';
-
-          fileNameEl.classList.remove('text-gray-900', 'font-medium');
-          fileNameEl.classList.add('text-gray-500');
-          fileSizeEl.classList.remove('text-gray-600');
-          fileSizeEl.classList.add('text-gray-400');
-
-          // Disable upload button
-          if (uploadButton) {
-              uploadButton.disabled = true;
-              uploadButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-              uploadButton.classList.add('bg-gray-400');
-          }
-      }
-  }
-
-  function formatFileType(filename) {
-      return '.' + filename.split('.').pop().toUpperCase();
-  }

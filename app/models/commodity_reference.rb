@@ -1,7 +1,11 @@
 class CommodityReference < ApplicationRecord
   include SimilarityCalculable
   validates :level3_desc, presence: true
-  validates :autograde_scope, inclusion: { in: ['In Scope', 'Out of Scope'], allow_blank: true }
+  validates :autograde_scope, inclusion: {
+    in: ['In Scope', 'Out of Scope', 'in scope', 'out of scope', 'In scope', 'Out scope'],
+    allow_blank: true,
+    message: "must be 'In Scope' or 'Out of Scope' (received: '%{value}')"
+  }
 
   # Atributo virtual para similitud de coseno calculada por PostgreSQL
   attr_accessor :cosine_similarity
@@ -258,15 +262,20 @@ class CommodityReference < ApplicationRecord
 
     # Normalizar autograde_scope
     if autograde_scope.present?
+      Rails.logger.info "🔍 [DEBUG] Original autograde_scope: '#{autograde_scope}'"
       normalized_autograde = autograde_scope.to_s.strip.downcase
+      Rails.logger.info "🔍 [DEBUG] Normalized autograde_scope: '#{normalized_autograde}'"
+
       self.autograde_scope = case normalized_autograde
                              when 'in scope'
                                'In Scope'
                              when 'out of scope'
                                'Out of Scope'
                              else
+                               Rails.logger.warn "⚠️ [WARNING] Unknown autograde_scope value: '#{normalized_autograde}'"
                                autograde_scope
                              end
+      Rails.logger.info "🔍 [DEBUG] Final autograde_scope: '#{self.autograde_scope}'"
     end
   end
 

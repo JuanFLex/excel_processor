@@ -82,7 +82,7 @@
                     - normalized_scope = (scope&.downcase&.strip == 'in scope') ? 'In scope' : 'Out of scope'
                     - scope_data[normalized_scope] = (scope_data[normalized_scope] || 0) + count
                   - scope_colors = scope_data.keys.map { |scope| scope == "In scope" ? "#10B981" : "#EF4444" }
-                  = pie_chart scope_data, height: "100%", colors: scope_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `$\{context.label}: $\{context.raw} ($\{percentage}%)`; }' } } } }
+                  = pie_chart scope_data, height: "100%", colors: scope_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `${context.label}: ${context.raw} (${percentage}%)`; }' } } } }
                 .mt-4.flex.justify-center.space-x-4
                   - scope_data.each do |scope, count|
                     - color = scope == "In scope" ? "#10B981" : "#EF4444"
@@ -107,7 +107,7 @@
                         = "$#{number_to_human(total_ear, precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe}"
                       %p.text-xs.text-gray-500.mt-1 Total EAR
                   - ear_colors = ear_by_scope.keys.map { |scope| scope == "In scope" ? "#10B981" : "#EF4444" }
-                  = pie_chart ear_by_scope, height: "100%", colors: ear_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const formatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }); const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `$\{context.label}: $\{formatter.format(context.raw)} ($\{percentage}%)`; }' } } } }
+                  = pie_chart ear_by_scope, height: "100%", colors: ear_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const formatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }); const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `${context.label}: ${formatter.format(context.raw)} (${percentage}%)`; }' } } } }
                 .mt-4.flex.justify-center.space-x-4
                   - ear_by_scope.each do |scope, ear_value|
                     - color = scope == "In scope" ? "#10B981" : "#EF4444"
