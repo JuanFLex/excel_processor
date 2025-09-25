@@ -11,6 +11,7 @@
     = stylesheet_link_tag "application.tailwind", "data-turbo-track": "reload"
     = javascript_importmap_tags
     = javascript_include_tag "chartkick", "Chart.bundle"
+    %script{defer: true, src: "https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"}
 
   %body.bg-gray-100.min-h-screen
     %header{style: "background-color: #92b2d9ff; color: white;"}
