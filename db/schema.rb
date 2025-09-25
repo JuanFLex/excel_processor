@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_22_134416) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_24_191336) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -55,6 +55,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_22_134416) do
     t.text "mfr"
     t.text "level3_desc_expanded"
     t.text "typical_mpn_by_manufacturer"
+    t.string "autograde_scope"
+    t.index ["autograde_scope"], name: "index_commodity_references_on_autograde_scope"
     t.index ["infinex_scope_status"], name: "index_commodity_references_on_infinex_scope_status"
     t.index ["level2_desc"], name: "index_commodity_references_on_level2_desc"
   end

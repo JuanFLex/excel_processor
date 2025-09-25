@@ -235,7 +235,30 @@ class FileUploadsController < ApplicationController
       redirect_to file_uploads_path, alert: "Error deleting file: #{e.message}"
     end
   end
-  
+
+  # AJAX endpoint para lookup de oportunidades
+  def lookup_opportunity
+    opportunity_number = params[:opportunity_number]
+
+    if opportunity_number.blank?
+      render json: { error: 'Opportunity number is required' }, status: :bad_request
+      return
+    end
+
+    begin
+      opportunity_data = ItemLookup.lookup_opportunity(opportunity_number)
+
+      if opportunity_data
+        render json: { success: true, data: opportunity_data }
+      else
+        render json: { success: false, message: 'Opportunity not found' }
+      end
+    rescue => e
+      Rails.logger.error "Error in opportunity lookup: #{e.message}"
+      render json: { error: 'Database error occurred' }, status: :internal_server_error
+    end
+  end
+
   private
   
   def file_params
@@ -534,7 +557,7 @@ class FileUploadsController < ApplicationController
       Rails.logger.error "❌ [EXPORT] Error loading SQL caches: #{e.message}"
       # Return empty caches so export continues without SQL data
     end
-    
+
     caches
   end
 end

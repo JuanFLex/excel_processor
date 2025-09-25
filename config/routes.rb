@@ -18,7 +18,10 @@ Rails.application.routes.draw do
       patch :approve_mapping
       patch :update_mapping
     end
-    
+
+    collection do
+      post :lookup_opportunity
+    end
   end
   
   resources :commodity_references, only: [:index, :edit, :update] do

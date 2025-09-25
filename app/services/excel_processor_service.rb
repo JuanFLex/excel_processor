@@ -231,7 +231,20 @@ class ExcelProcessorService
           cache_hits += 1
         else
           # Buscar scope en base de datos usando commodity exacto y columna correcta
-          scope = CommodityReference.scope_for_commodity(existing_commodity, commodity_column_type)
+          scope = CommodityReference.scope_for_commodity(existing_commodity, commodity_column_type, @processed_file.include_medical_auto_grades)
+
+          # Logging para debugging de autograde_scope
+          if @processed_file.include_medical_auto_grades
+            commodity_record = CommodityReference.find_by_commodity_exact(existing_commodity, commodity_column_type)
+            if commodity_record&.autograde_scope.present?
+              Rails.logger.info "🔧 Using autograde_scope for commodity '#{existing_commodity}': #{commodity_record.autograde_scope}"
+            else
+              Rails.logger.info "🔄 Fallback to infinex_scope_status for commodity '#{existing_commodity}': #{commodity_record&.infinex_scope_status}"
+            end
+          else
+            Rails.logger.info "🏢 Using infinex_scope_status (Commercial mode) for commodity '#{existing_commodity}'"
+          end
+
           values['scope'] = scope
           @scope_cache[cache_key] = scope
         end
@@ -250,7 +263,10 @@ class ExcelProcessorService
           if manual_remap[:commodity_changes][original_commodity].present?
             new_commodity = manual_remap[:commodity_changes][original_commodity]
             values['commodity'] = new_commodity
-            values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+            values['scope'] = CommodityReference.scope_for_commodity(new_commodity, 'level3_desc', @processed_file.include_medical_auto_grades)
+
+            # Logging para manual remap
+            Rails.logger.info "🔄 Manual remap applied: '#{original_commodity}' → '#{new_commodity}' (mode: #{@processed_file.include_medical_auto_grades ? 'AUTO' : 'COMMERCIAL'})"
             
             if index % 10 == 0
             end
@@ -351,7 +367,10 @@ class ExcelProcessorService
             
             if similar_commodity
               values['commodity'] = similar_commodity.level3_desc  # CAMBIO: level3_desc
-              values['scope'] = similar_commodity.infinex_scope_status&.downcase == 'in scope' ? 'In scope' : 'Out of scope'
+              values['scope'] = CommodityReference.scope_for_commodity(similar_commodity.level3_desc, 'level3_desc', @processed_file.include_medical_auto_grades)
+
+              # Logging para AI classification
+              Rails.logger.info "🤖 AI classified commodity: '#{similar_commodity.level3_desc}' (mode: #{@processed_file.include_medical_auto_grades ? 'AUTO' : 'COMMERCIAL'})"
               
               # Si tiene cruce en SQL Server, automáticamente In scope
               if lookup_cross_reference(values['mfg_partno']).present?
@@ -397,7 +416,7 @@ class ExcelProcessorService
         if manual_remap[:commodity_changes][original_commodity].present?
           new_commodity = manual_remap[:commodity_changes][original_commodity]
           values['commodity'] = new_commodity
-          values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+          values['scope'] = CommodityReference.scope_for_commodity(new_commodity, 'level3_desc', @processed_file.include_medical_auto_grades)
           
           if index % 10 == 0
           end
@@ -789,7 +808,7 @@ class ExcelProcessorService
         begin
           # Construir filtro de component grade basado en configuración del processed_file
           include_medical_auto = @processed_file&.include_medical_auto_grades || false
-          grade_filter = include_medical_auto ? "" : "AND COMPONENT_GRADE NOT IN ('MEDICAL','AUTO')"
+          grade_filter = include_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
 
           result = ItemLookup.connection.select_all(
             "SELECT DISTINCT CROSS_REF_MPN, SUPPLIER_PN, INFINEX_MPN, INFINEX_COST, CROSS_REF_MFG
@@ -1124,7 +1143,7 @@ class ExcelProcessorService
         
         # Aplicar el remapping
         values['commodity'] = new_commodity
-        values['scope'] = CommodityReference.scope_for_commodity(new_commodity)
+        values['scope'] = CommodityReference.scope_for_commodity(new_commodity, 'level3_desc', @processed_file.include_medical_auto_grades)
         
         break # Solo aplicar el primer match
       end

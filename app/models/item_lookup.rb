@@ -57,4 +57,56 @@ class ItemLookup < ApplicationRecord
       Rails.logger.error "Error en lookup SQL Server: #{e.message}"
       nil
     end
+
+    # Método para lookup de oportunidades
+    def self.lookup_opportunity(opportunity_number)
+      return nil if opportunity_number.blank?
+
+      # Switch a mock si está configurado
+      if ENV['MOCK_SQL_SERVER'] == 'true'
+        return MockItemLookup.lookup_opportunity(opportunity_number)
+      end
+
+      begin
+        result = connection.select_all(
+          "SELECT
+            OPPORTUNITY_NUMBER,
+            [opp.Name (Name)] AS OPPORTUNITY_NAME,
+            [opp.Account_Name__c (Account Name)] AS CUSTOMER,
+            [opp.Probability (Probability (%))] AS PROBABILITY,
+            [opp.CloseDate (Close Date)] AS TARGETED_QUOTE_DEADLINE,
+            [opp.Product_Type_Segment__c (Product Type (Segment))] AS PRODUCT_APPLICATION,
+            [opp.Sales_BU__c (Sales Segment)] AS BU,
+            [opp.StageName (Stage)] AS STAGE,
+            [opp.Expected_Annualized_Revenue__c (EAR-Estimated Annualized Revenue ($M))] AS EAR,
+            [target_site_1_name_c] AS SITE_1,
+            [user.Name (Opp Owner Full Name)] AS BD_OWNER,
+            [Production Ramp Start Date] as SOP_DATE
+          FROM CSG_rptSFDC
+          WHERE [Primary Service Group] = 'Coreworks'
+            AND OPPORTUNITY_NUMBER = '#{opportunity_number}'"
+        )
+
+        return nil if result.rows.empty?
+
+        row = result.rows.first
+        {
+          opportunity_number: row[0],
+          opportunity_name: row[1],
+          customer: row[2],
+          probability: row[3],
+          targeted_quote_deadline: row[4],
+          product_application: row[5],
+          bu: row[6],
+          stage: row[7],
+          ear: row[8],
+          site_1: row[9],
+          bd_owner: row[10],
+          sop_date: row[11]
+        }
+      rescue => e
+        Rails.logger.error "Error en opportunity lookup SQL Server: #{e.message}"
+        nil
+      end
+    end
   end
