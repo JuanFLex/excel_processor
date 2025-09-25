@@ -206,7 +206,7 @@ class CommodityReference < ApplicationRecord
   # CSV export functionality
   def self.to_csv
     require 'csv'
-    attributes = %w{id global_comm_code_desc level1_desc level2_desc level3_desc infinex_scope_status keyword mfr level3_desc_expanded typical_mpn_by_manufacturer created_at updated_at}
+    attributes = %w{id global_comm_code_desc level1_desc level2_desc level3_desc infinex_scope_status autograde_scope keyword mfr level3_desc_expanded typical_mpn_by_manufacturer created_at updated_at}
     
     CSV.generate(headers: true) do |csv|
       csv << attributes.map(&:humanize)

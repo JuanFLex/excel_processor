@@ -28,6 +28,7 @@ class CommodityReferenceLoader
           level3_desc: row['LEVEL3_DESC'],
           level3_desc_expanded: row['LEVEL3_DESC_EXPANDED'],
           infinex_scope_status: row['Infinex Scope Status'],
+          autograde_scope: row['autograde_scope'],
           keyword: row['KEYWORDS'],
           mfr: row['MFR'],
           typical_mpn_by_manufacturer: row['TYPICAL_MPN_BY_MANUFACTURER']
