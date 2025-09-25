@@ -11,14 +11,14 @@
       = form_with url: commodity_references_path, method: :get, local: true, class: "flex gap-3" do |f|
         = f.text_field :search, value: @search_query, placeholder: "Search all fields...", 
           class: "flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-gray-500 focus:border-gray-500"
-        = f.submit "Search", class: "px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+        = f.submit "Search", class: "px-5 py-2 bg-blue-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
         - if @search_query.present?
           = link_to "Clear", commodity_references_path, class: "px-5 py-2 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors"
 
     / Simplified Actions
     .flex.gap-4.mb-12
       = link_to "Upload Reference File", upload_commodity_references_path,
-        class: "px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
+        class: "px-5 py-2.5 bg-blue-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors"
 
     / References Section
     .bg-white
