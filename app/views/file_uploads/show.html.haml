@@ -193,7 +193,7 @@
                 %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(total_ear, precision: 0)
                 %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(@analytics[:in_scope_total][:ear], precision: 0)
                 %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(@analytics[:meeting_threshold][:ear], precision: 0)
-        
+
         -# Column Mapping
         .mt-12
           %section
@@ -214,12 +214,18 @@
             - else
               .bg-gray-50.rounded-lg.p-12.text-center
                 %p.text-sm.text-gray-500 No mapping data available
-        
+
+        / Disclaimer for PDF
+        .mt-8.text-center.border-t.border-gray-200.pt-6
+          .bg-blue-50.rounded-lg.p-4.max-w-2xl.mx-auto
+            %p.text-xs.text-blue-600.italic
+              %span.font-medium Disclaimer:
+              This content was generated with the help of AI and may contain inaccuracies. Please review and validate before use.
+
         - if @processed_file.error_message.present?
           .mt-8.p-6.bg-red-50.border.border-red-200.rounded-lg
             %h3.text-sm.font-medium.text-red-900.mb-2 Processing Error
             %p.text-sm.text-red-700= @processed_file.error_message
-
 
     -# Opportunity Number Modal
     #opportunityModal.hidden.fixed.inset-0.bg-black.bg-opacity-50.z-50
@@ -445,10 +451,10 @@
       let lookupTimeout = null;
 
       function openOpportunityModal() {
-        // Generate email data directly here
+        // Generate email data using centralized configuration
         emailData = {
-          to: "lynn.moore@flexcoreworks.com",
-          cc: "linda.ramos@flex.com",
+          to: #{ExcelProcessorConfig::EMAIL_CONFIG[:opportunity_to].to_json},
+          cc: #{ExcelProcessorConfig::EMAIL_CONFIG[:opportunity_cc].to_json},
           subject: #{subject.to_json},
           body: #{body.to_json}
         };

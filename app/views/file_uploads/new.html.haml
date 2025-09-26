@@ -1,104 +1,108 @@
 .px-6.lg:px-8.py-8.lg:py-12
-  / Header
-  .mb-12
-    = link_to "← Back", file_uploads_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
-    %h1.text-2xl.font-medium.text-gray-900.mb-2 Upload Excel File
-    %p.text-sm.text-gray-600 Transform your unstructured data into standardized format
+  .max-w-7xl.mx-auto.px-4.sm:px-6.lg:px-8.py-8.lg:py-12
+    .flex.justify-center
+      %div
+        / Header
+        .mb-12
+          = link_to "← Back", file_uploads_path, class: "text-sm text-gray-600 hover:text-gray-900 mb-6 inline-block"
+          %h1.text-2xl.font-medium.text-gray-900.mb-2 Upload Excel File
+          %p.text-sm.text-gray-600 Transform your unstructured data into standardized format
 
-  / Upload Form
-  = form_with(url: file_uploads_path, method: :post, local: true, multipart: true, scope: :file_upload, class: "space-y-8") do |form|
+        .max-w-4xl.mx-auto
+          / Upload Form
+          = form_with(url: file_uploads_path, method: :post, local: true, multipart: true, scope: :file_upload, class: "space-y-8") do |form|
 
-    / Processing Configuration - Prominent Position
-    .bg-gradient-to-r.from-blue-50.to-indigo-50.border.border-blue-200.rounded-xl.p-6.shadow-sm
-      .mb-4
-        %h2.text-lg.font-semibold.text-gray-900.mb-1 Processing Configuration
-        %p.text-sm.text-gray-600 Configure how your data will be processed
+            / Processing Configuration - Prominent Position
+            .bg-gradient-to-r.from-blue-50.to-indigo-50.border.border-blue-200.rounded-xl.p-6.shadow-sm
+              .mb-4
+                %h2.text-lg.font-semibold.text-gray-900.mb-1 Processing Configuration
+                %p.text-sm.text-gray-600 Configure how your data will be processed
 
-      / Volume Multiplier Toggle Card
-      .bg-white.border.border-gray-200.rounded-lg.p-4.mb-4.transition-all.duration-200.hover:shadow-md{"id" => "volume-config-card"}
-        .flex.items-start.space-x-4
-          .flex-shrink-0.mt-1
-            = form.check_box :volume_multiplier_enabled, id: "volume-multiplier-checkbox", class: "h-5 w-5 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleVolumeMultiplier(this)"
-          .flex-1.min-w-0
-            .flex.items-center.justify-between
-              %div
-                = form.label :volume_multiplier_enabled, "Volume Scaling", class: "text-base font-medium text-gray-900 cursor-pointer", for: "volume-multiplier-checkbox"
-                %p.text-sm.text-gray-600.mt-1 Apply scaling factor to EAU (Estimated Annual Usage) values for volume scenarios
-              %div#volume-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
-                Disabled
+              / Volume Multiplier Toggle Card
+              .bg-white.border.border-gray-200.rounded-lg.p-4.mb-4.transition-all.duration-200.hover:shadow-md{"id" => "volume-config-card"}
+                .flex.items-start.space-x-4
+                  .flex-shrink-0.mt-1
+                    = form.check_box :volume_multiplier_enabled, id: "volume-multiplier-checkbox", class: "h-5 w-5 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleVolumeMultiplier(this)"
+                  .flex-1.min-w-0
+                    .flex.items-center.justify-between
+                      %div
+                        = form.label :volume_multiplier_enabled, "Volume Scaling", class: "text-base font-medium text-gray-900 cursor-pointer", for: "volume-multiplier-checkbox"
+                        %p.text-sm.text-gray-600.mt-1 Apply scaling factor to EAU (Estimated Annual Usage) values for volume scenarios
+                      %div#volume-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
+                        Disabled
 
-        / Volume Input - Enhanced
-        #volume-multiplier-settings.hidden.mt-4.pt-4.border-t.border-gray-100
-          .bg-gray-50.rounded-lg.p-4
-            .flex.items-center.space-x-4
-              %div
-                = form.label :volume_multiplier, "Scaling Factor", class: "block text-sm font-medium text-gray-700 mb-2"
-                .relative
-                  = form.number_field :volume_multiplier, min: 1, value: 1, class: "w-32 pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium", placeholder: "1"
-                  .absolute.inset-y-0.right-0.flex.items-center.pr-3.pointer-events-none
-                    %span.text-gray-400.text-sm ×
-              .flex-1
-                %div.text-xs.text-gray-600.mb-1 Effect Preview
-                %div.bg-white.rounded.border.p-2.text-xs.font-mono
-                  %span.text-gray-500 EAU: 100 →
-                  %span#preview-result.font-semibold.text-blue-600.ml-1 100
+                / Volume Input - Enhanced
+                #volume-multiplier-settings.hidden.mt-4.pt-4.border-t.border-gray-100
+                  .bg-gray-50.rounded-lg.p-4
+                    .flex.items-center.space-x-4
+                      %div
+                        = form.label :volume_multiplier, "Scaling Factor", class: "block text-sm font-medium text-gray-700 mb-2"
+                        .relative
+                          = form.number_field :volume_multiplier, min: 1, value: 1, class: "w-32 pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium", placeholder: "1"
+                          .absolute.inset-y-0.right-0.flex.items-center.pr-3.pointer-events-none
+                            %span.text-gray-400.text-sm ×
+                      .flex-1
+                        %div.text-xs.text-gray-600.mb-1 Effect Preview
+                        %div.bg-white.rounded.border.p-2.text-xs.font-mono
+                          %span.text-gray-500 EAU: 100 →
+                          %span#preview-result.font-semibold.text-blue-600.ml-1 100
 
-            .mt-3.p-3.bg-blue-50.rounded-lg
-              %p.text-xs.font-medium.text-blue-800.mb-1 Volume Scaling Impact
-              %p.text-xs.text-blue-700 This multiplier affects both EAU values and downstream EAR (Extended Annual Requirements) calculations
+                    .mt-3.p-3.bg-blue-50.rounded-lg
+                      %p.text-xs.font-medium.text-blue-800.mb-1 Volume Scaling Impact
+                      %p.text-xs.text-blue-700 This multiplier affects both EAU values and downstream EAR (Extended Annual Requirements) calculations
 
-      / Total Demand Lookup Toggle Card
-      .bg-white.border.border-gray-200.rounded-lg.p-4.mb-4.transition-all.duration-200.hover:shadow-md{"id" => "demand-config-card"}
-        .flex.items-start.space-x-4
-          .flex-shrink-0.mt-1
-            = form.check_box :enable_total_demand_lookup, id: "total-demand-checkbox", class: "h-5 w-5 text-purple-600 focus:ring-purple-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleTotalDemandLookup(this)"
-          .flex-1.min-w-0
-            .flex.items-center.justify-between
-              %div
-                = form.label :enable_total_demand_lookup, "Total Demand Lookup", class: "text-base font-medium text-gray-900 cursor-pointer", for: "total-demand-checkbox"
-                %p.text-sm.text-gray-600.mt-1 Query SQL Server for Total Demand data when EAU is unavailable for EAR calculations
-              %div#demand-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
-                Disabled
+              / Total Demand Lookup Toggle Card
+              .bg-white.border.border-gray-200.rounded-lg.p-4.mb-4.transition-all.duration-200.hover:shadow-md{"id" => "demand-config-card"}
+                .flex.items-start.space-x-4
+                  .flex-shrink-0.mt-1
+                    = form.check_box :enable_total_demand_lookup, id: "total-demand-checkbox", class: "h-5 w-5 text-purple-600 focus:ring-purple-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleTotalDemandLookup(this)"
+                  .flex-1.min-w-0
+                    .flex.items-center.justify-between
+                      %div
+                        = form.label :enable_total_demand_lookup, "Total Demand Lookup", class: "text-base font-medium text-gray-900 cursor-pointer", for: "total-demand-checkbox"
+                        %p.text-sm.text-gray-600.mt-1 Query SQL Server for Total Demand data when EAU is unavailable for EAR calculations
+                      %div#demand-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
+                        Disabled
 
-        / Info panel - shown when enabled
-        #total-demand-info.hidden.mt-4.pt-4.border-t.border-gray-100
-          .bg-purple-50.rounded-lg.p-4
-            %p.text-xs.font-medium.text-purple-800.mb-1 Total Demand Impact
-            %p.text-xs.text-purple-700 When enabled, the system will retrieve available demand from Baan to calculate EAR when EAU is missing or zero.
+                / Info panel - shown when enabled
+                #total-demand-info.hidden.mt-4.pt-4.border-t.border-gray-100
+                  .bg-purple-50.rounded-lg.p-4
+                    %p.text-xs.font-medium.text-purple-800.mb-1 Total Demand Impact
+                    %p.text-xs.text-purple-700 When enabled, the system will retrieve available demand from Baan to calculate EAR when EAU is missing or zero.
 
-      / Component Grade Filter Toggle Card - TEXTOS ACTUALIZADOS
-      .bg-white.border.border-gray-200.rounded-lg.p-4.transition-all.duration-200.hover:shadow-md{"id" => "component-grade-config-card"}
-        .flex.items-start.space-x-4
-          .flex-shrink-0.mt-1
-            = form.check_box :include_medical_auto_grades, id: "component-grade-checkbox", class: "h-5 w-5 text-green-600 focus:ring-green-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleComponentGradeFilter(this)"
-          .flex-1.min-w-0
-            .flex.items-center.justify-between
-              %div
-                = form.label :include_medical_auto_grades, "Auto Grade Filter", class: "text-base font-medium text-gray-900 cursor-pointer", for: "component-grade-checkbox"
-                %p.text-sm.text-gray-600.mt-1 Filter lookups and classifications by Auto vs Commercial mode
-              %div#component-grade-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
-                Commercial Only
+              / Component Grade Filter Toggle Card - TEXTOS ACTUALIZADOS
+              .bg-white.border.border-gray-200.rounded-lg.p-4.transition-all.duration-200.hover:shadow-md{"id" => "component-grade-config-card"}
+                .flex.items-start.space-x-4
+                  .flex-shrink-0.mt-1
+                    = form.check_box :include_medical_auto_grades, id: "component-grade-checkbox", class: "h-5 w-5 text-green-600 focus:ring-green-500 focus:ring-offset-0 border-gray-300 rounded transition-colors", onchange: "toggleComponentGradeFilter(this)"
+                  .flex-1.min-w-0
+                    .flex.items-center.justify-between
+                      %div
+                        = form.label :include_medical_auto_grades, "Auto Grade Filter", class: "text-base font-medium text-gray-900 cursor-pointer", for: "component-grade-checkbox"
+                        %p.text-sm.text-gray-600.mt-1 Filter lookups and classifications by Auto vs Commercial mode
+                      %div#component-grade-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
+                        Commercial Only
 
-          / Info panel - content changes based on toggle
-          #component-grade-info.mt-4.pt-4.border-t.border-gray-100
-            .bg-green-50.rounded-lg.p-4
-              %p.text-xs.font-medium.text-green-800.mb-1 Current Filter Mode
-              %p#grade-filter-description.text-xs.text-green-700 Using COMMERCIAL component grades for lookups and infinex scope for classifications.
-    
-    / Upload Area - Refined
-    .border-2.border-dashed.border-gray-300.rounded-xl.p-8.text-center.hover:border-gray-400.transition-all.duration-200.hover:bg-gray-50.group
-      = form.file_field :file, class: "sr-only", id: "file-input", accept: ".xlsx,.xls,.csv", required: true, onchange: "updateFileName(this)"
-      %label.cursor-pointer.block{for: "file-input"}
-        %p.text-base.text-gray-700.mb-4.font-medium Drag and drop your file here, or
-        %span.inline-block.px-6.py-3.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-lg.transition-colors.shadow-sm
-          Choose File
-        %p.mt-4.text-sm.text-gray-600#file-name No file selected
-        %p.text-xs.text-gray-400.mt-2 Supports: .xlsx, .xls, .csv files up to 10MB
+                  / Info panel - content changes based on toggle
+                  #component-grade-info.mt-4.pt-4.border-t.border-gray-100
+                    .bg-green-50.rounded-lg.p-4
+                      %p.text-xs.font-medium.text-green-800.mb-1 Current Filter Mode
+                      %p#grade-filter-description.text-xs.text-green-700 Using COMMERCIAL component grades for lookups and infinex scope for classifications.
+            
+            / Upload Area - Refined
+            .border-2.border-dashed.border-gray-300.rounded-xl.p-8.text-center.hover:border-gray-400.transition-all.duration-200.hover:bg-gray-50.group
+              = form.file_field :file, class: "sr-only", id: "file-input", accept: ".xlsx,.xls,.csv", required: true, onchange: "updateFileName(this)"
+              %label.cursor-pointer.block{for: "file-input"}
+                %p.text-base.text-gray-700.mb-4.font-medium Drag and drop your file here, or
+                %span.inline-block.px-6.py-3.bg-gray-900.hover:bg-gray-800.text-white.text-sm.font-medium.rounded-lg.transition-colors.shadow-sm
+                  Choose File
+                %p.mt-4.text-sm.text-gray-600#file-name No file selected
+                %p.text-xs.text-gray-400.mt-2 Supports: .xlsx, .xls, .csv files up to 10MB
 
-    / Submit Button
-    .text-center.pt-4
-      = form.submit "Start Processing",
-        class: "px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer"
+            / Submit Button
+            .text-center.pt-4
+              = form.submit "Start Processing",
+                class: "px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer"
 
 :javascript
   function updateFileName(input) {

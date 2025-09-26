@@ -30,4 +30,10 @@ class ExcelProcessorConfig
   # Automatic AI analysis constants
   TOP_EAR_ANALYSIS_COUNT = 10 # Number of top EAR items to analyze automatically
   SIMILARITY_ANALYSIS_LIMIT = 10 # Number of similar commodities to retrieve for analysis
+
+  # Email configuration
+  EMAIL_CONFIG = {
+    opportunity_to: "lynn.moore@flexcoreworks.com",
+    opportunity_cc: "linda.ramos@flex.com;Luis.Cortes@flex.com"
+  }.freeze
 end
