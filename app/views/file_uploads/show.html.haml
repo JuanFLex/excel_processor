@@ -55,7 +55,7 @@
             %div
               %p.text-xs.uppercase.tracking-wider.text-gray-500.mb-1= label
               %p.text-sm.font-medium.text-gray-900
-                = value.is_a?(Time) ? value.strftime("%b %d · %H:%M") : (value || '—')
+                = value.is_a?(Time) ? value.strftime("%b %d · %H:%M UTC") : (value || '—')
 
         -# Column Preview Section (rendered as partial)
         - if @processed_file.column_preview?
@@ -607,7 +607,7 @@
                             '- Stage: ' + (oppData.stage || 'N/A') + '\r\n' +
                             '- Probability: ' + (oppData.probability ? oppData.probability + '%' : 'N/A') + '\r\n' +
                             '- EAR: ' + (oppData.ear ? '$' + oppData.ear + 'M' : 'N/A') + '\r\n' +
-                            '- Quote Deadline: ' + (oppData.targeted_quote_deadline || 'N/A') + '\r\n' +
+                            '- Close Date: ' + (oppData.targeted_quote_deadline || 'N/A') + '\r\n' +
                             '- BD Owner: ' + (oppData.bd_owner || 'N/A') + '\r\n' +
                             '- Target Site: ' + (oppData.site_1 || 'N/A') + '\r\n\r\n';
 

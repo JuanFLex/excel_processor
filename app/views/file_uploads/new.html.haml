@@ -44,7 +44,7 @@
                       .flex-1
                         %div.text-xs.text-gray-600.mb-1 Effect Preview
                         %div.bg-white.rounded.border.p-2.text-xs.font-mono
-                          %span.text-gray-500 EAU: 100 →
+                          %span.text-gray-500 Volume: 100 (example) →
                           %span#preview-result.font-semibold.text-blue-600.ml-1 100
 
                     .mt-3.p-3.bg-blue-50.rounded-lg
@@ -59,8 +59,8 @@
                   .flex-1.min-w-0
                     .flex.items-center.justify-between
                       %div
-                        = form.label :enable_total_demand_lookup, "Total Demand Lookup", class: "text-base font-medium text-gray-900 cursor-pointer", for: "total-demand-checkbox"
-                        %p.text-sm.text-gray-600.mt-1 Query SQL Server for Total Demand data when EAU is unavailable for EAR calculations
+                        = form.label :enable_total_demand_lookup, "Total Demand & Pricing Lookup", class: "text-base font-medium text-gray-900 cursor-pointer", for: "total-demand-checkbox"
+                        %p.text-sm.text-gray-600.mt-1  Query SQL Server to retrieve Total Demand and the Lowest Pricing Available when EAU is unavailable for EAR calculations
                       %div#demand-status.text-xs.px-2.py-1.rounded-full.bg-gray-100.text-gray-600.font-medium.transition-all
                         Disabled
 
