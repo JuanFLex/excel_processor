@@ -214,7 +214,7 @@ class TopEarAnalyzerJob < ApplicationJob
     begin
       # Load Total Demand cache (only if enabled for this file)
       if processed_file.enable_total_demand_lookup && unique_items.any?
-        unique_items.each_slice(1000) do |batch_items|
+        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_items|
           quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
 
           result = ItemLookup.connection.select_all(
@@ -232,7 +232,7 @@ class TopEarAnalyzerJob < ApplicationJob
 
       # Load Min Price cache
       if unique_items.any?
-        unique_items.each_slice(1000) do |batch_items|
+        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_items|
           quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
 
           result = ItemLookup.connection.select_all(
@@ -255,7 +255,7 @@ class TopEarAnalyzerJob < ApplicationJob
         grade_filter = include_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
 
 
-        unique_mpns.each_slice(1000) do |batch_mpns|
+        unique_mpns.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_mpns|
           quoted_mpns = batch_mpns.map { |mpn| "'#{mpn.gsub("'", "''")}'" }.join(',')
 
           result = ItemLookup.connection.select_all(

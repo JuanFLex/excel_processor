@@ -244,7 +244,7 @@ class ProcessedFile < ApplicationRecord
     ErrorHandler.with_fallback("loading SQL caches for analytics") do
       # Load Total Demand cache (only if enabled for this file)
       if enable_total_demand_lookup
-        SqlBatchHelper.process_in_batches(unique_items, batch_size: 1000) do |quoted_items, batch_items|
+        SqlBatchHelper.process_in_batches(unique_items, batch_size: ExcelProcessorConfig::BATCH_SIZE) do |quoted_items, batch_items|
           result = ItemLookup.connection.select_all(
             "SELECT ITEM, TOTAL_DEMAND
              FROM ExcelProcessorAMLfind
@@ -258,7 +258,7 @@ class ProcessedFile < ApplicationRecord
       end
 
       # Load Min Price cache
-      SqlBatchHelper.process_in_batches(unique_items, batch_size: 1000) do |quoted_items, batch_items|
+      SqlBatchHelper.process_in_batches(unique_items, batch_size: ExcelProcessorConfig::BATCH_SIZE) do |quoted_items, batch_items|
         result = ItemLookup.connection.select_all(
           "SELECT ITEM, MIN_PRICE
            FROM ExcelProcessorAMLfind

@@ -1031,7 +1031,7 @@ class ExcelProcessorService
       @aml_min_price_cache = mock_data[:min_price]
       cache_size = @aml_total_demand_cache.size + @aml_min_price_cache.size
     else
-      # Conexión real a SQL Server - procesar en batches de 1000
+      # Conexión real a SQL Server - procesar en batches configurables
       begin
         total_demand_count = 0
         min_price_count = 0
