@@ -180,24 +180,24 @@ class ProcessedFile < ApplicationRecord
     return Set.new if mfg_partnos.empty?
     return Set.new unless defined?(ItemLookup)
     
-    begin
+    ErrorHandler.with_fallback("loading cross references", Set.new) do
       # Filtrar nulos y crear placeholders
       valid_partnos = mfg_partnos.compact.reject(&:blank?)
       return Set.new if valid_partnos.empty?
-      
+
       # NUEVO: Procesar en chunks para evitar timeouts con archivos grandes
       chunk_size = ExcelProcessorConfig::BATCH_SIZE # Máximo partnos por consulta
       all_results = Set.new
       total_chunks = (valid_partnos.size / chunk_size.to_f).ceil
-      
+
       Rails.logger.info "📊 [BULK] Processing #{valid_partnos.size} partnos in #{total_chunks} chunks of #{chunk_size}"
-      
+
       valid_partnos.each_slice(chunk_size).with_index do |partnos_chunk, index|
         Rails.logger.info "🔄 [BULK] Processing chunk #{index + 1}/#{total_chunks}"
-        
+
         # Escapar y formatear partnos para SQL Server
         escaped_partnos = partnos_chunk.map { |pn| "'#{pn.to_s.gsub("'", "''")}'" }.join(',')
-        
+
         # Apply component grade filter based on processed file configuration
         include_medical_auto = self.include_medical_auto_grades || false
         grade_filter = enable_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
@@ -208,18 +208,15 @@ class ProcessedFile < ApplicationRecord
            WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL
            #{grade_filter}"
         ).to_a
-        
+
         chunk_results = result.flatten.to_set
         all_results.merge(chunk_results)
-        
+
         Rails.logger.info "✅ [BULK] Chunk #{index + 1} completed: found #{chunk_results.size} matches"
       end
-      
+
       Rails.logger.info "🎯 [BULK] Total cross-references found: #{all_results.size}"
       all_results
-    rescue => e
-      Rails.logger.error "Error loading cross references: #{e.message}"
-      Set.new
     end
   end
 
@@ -244,7 +241,7 @@ class ProcessedFile < ApplicationRecord
     unique_items = processed_items.pluck(:item).compact.uniq.map(&:to_s).map(&:strip)
     return caches if unique_items.empty?
 
-    begin
+    ErrorHandler.with_fallback("loading SQL caches for analytics") do
       # Load Total Demand cache (only if enabled for this file)
       if enable_total_demand_lookup
         unique_items.each_slice(1000) do |batch_items|
@@ -276,10 +273,6 @@ class ProcessedFile < ApplicationRecord
           caches[:min_price][row[0]] = row[1]
         end
       end
-
-    rescue => e
-      Rails.logger.error "Error loading SQL caches for analytics: #{e.message}"
-      # Return empty caches so analytics continue without SQL data
     end
 
     caches
