@@ -130,25 +130,15 @@ class CommodityReference < ApplicationRecord
     record = find_by_commodity_exact(commodity_name, column_type)
     return 'Out of scope' unless record
 
-    # Debug logging
-    Rails.logger.info "🔍 [SCOPE DEBUG] Commodity: #{commodity_name}, Auto Mode: #{auto_mode}"
-    Rails.logger.info "🔍 [SCOPE DEBUG] infinex_scope_status: #{record.infinex_scope_status.inspect}"
-    Rails.logger.info "🔍 [SCOPE DEBUG] autograde_scope: #{record.autograde_scope.inspect}"
-
     # Si está en modo AUTO, usar autograde_scope; si no, usar infinex_scope_status
     scope_field = auto_mode && record.autograde_scope.present? ?
       record.autograde_scope :
       record.infinex_scope_status
 
-    Rails.logger.info "🔍 [SCOPE DEBUG] Selected scope_field: #{scope_field.inspect}"
-
     # Normalizar comparación (case-insensitive)
     return 'Out of scope' if scope_field.blank?
 
-    result = scope_field.downcase.strip == 'in scope' ? 'In scope' : 'Out of scope'
-    Rails.logger.info "🔍 [SCOPE DEBUG] Final result: #{result}"
-
-    result
+    scope_field.downcase.strip == 'in scope' ? 'In scope' : 'Out of scope'
   end
 
   # OPTIMIZACIÓN: Buscar múltiples commodities en batch para evitar N+1 queries

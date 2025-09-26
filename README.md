@@ -117,12 +117,51 @@ Every processed file gets these columns:
 ### Processing logic
 
 1. **Column identification**: OpenAI analyzes your headers and maps them
-2. **Commodity classification**: 
+2. **Commodity classification**:
    - If file has `LEVEL3_DESC` → use existing commodities, determine scope only
    - If no `LEVEL3_DESC` → generate embeddings and find similar commodities
-3. **Scope determination**: Match against reference database
-4. **Automatic correction**: AI analyzes top EAR items and corrects commodity assignments with high confidence
-5. **Excel generation**: Create standardized output file
+3. **Scope determination**: Multi-tier logic determines "In scope" or "Out of scope"
+4. **Cross-reference override**: Items with SQL Server cross-references become "In scope"
+5. **Automatic correction**: AI analyzes top EAR items and corrects commodity assignments with high confidence
+6. **Excel generation**: Create standardized output file
+
+### Scope Determination Business Logic
+
+The system uses a hierarchical approach to determine scope status:
+
+#### 1. Base Scope Determination
+- **Commercial Mode** (default): Uses `infinex_scope_status` from commodity references
+- **Auto Mode** (when enabled): Uses `autograde_scope` from commodity references if present, falls back to `infinex_scope_status`
+
+#### 2. Cross-Reference Override (Highest Priority)
+- Any MPN found in SQL Server cross-reference database automatically becomes "In scope"
+- **Important**: This override applies regardless of mode (Commercial or Auto)
+- **Business Rule**: Cross-references indicate confirmed vendor relationships
+
+#### 3. Mode-Specific Logic
+
+**Commercial Mode:**
+```
+Scope = infinex_scope_status from commodity_references table
+If cross-reference exists → Force "In scope"
+```
+
+**Auto Mode (include_medical_auto_grades = true):**
+```
+Scope = autograde_scope (if present) OR infinex_scope_status (fallback)
+If cross-reference exists → Force "In scope"
+```
+
+#### 4. Fallback Rules
+- **Unknown commodities**: Default to "Out of scope"
+- **Missing scope data**: Default to "Out of scope"
+- **Insufficient context**: Marked as "Requires Review"
+
+#### 5. Priority Order (Highest to Lowest)
+1. **Cross-reference override**: Always "In scope" if MPN exists in cross-reference database
+2. **Auto Mode scope**: Uses `autograde_scope` when Auto Mode enabled
+3. **Commercial scope**: Uses `infinex_scope_status` as default/fallback
+4. **Default fallback**: "Out of scope" for unknown items
 
 ### AI optimization
 
