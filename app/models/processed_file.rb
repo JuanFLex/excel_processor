@@ -6,28 +6,12 @@ class ProcessedFile < ApplicationRecord
   validates :status, presence: true, inclusion: { in: ['pending', 'column_preview', 'queued', 'processing', 'completed', 'failed'] }
   
   
-  def completed?
-    status == 'completed'
-  end
-  
-  def failed?
-    status == 'failed'
-  end
-  
-  def pending?
-    status == 'pending'
-  end
+  VALID_STATUSES = %w[pending column_preview queued processing completed failed].freeze
 
-  def column_preview?
-    status == 'column_preview'
-  end
-
-  def processing?
-    status == 'processing'
-  end
-
-  def queued?
-    status == 'queued'
+  VALID_STATUSES.each do |status_name|
+    define_method "#{status_name}?" do
+      status == status_name
+    end
   end
 
   def analytics
