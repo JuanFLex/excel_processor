@@ -14,6 +14,12 @@ class ProcessedFile < ApplicationRecord
     end
   end
 
+  # Normalize scope names for consistent display in charts and views
+  def self.normalize_scope(scope)
+    return 'In scope' if scope&.downcase&.strip == 'in scope'
+    'Out of scope'
+  end
+
   def analytics
     @analytics ||= calculate_analytics_optimized
   end
@@ -22,10 +28,10 @@ class ProcessedFile < ApplicationRecord
     # Contar solo items únicos (primera aparición por item number) para métricas
     unique_items.count
   end
-  
+
   def unique_items_by_scope
-    # Agrupar solo items únicos por scope para gráficas
-    unique_items.group_by(&:scope).transform_values(&:count)
+    # Agrupar solo items únicos por scope para gráficas (con normalización)
+    unique_items.group_by { |item| self.class.normalize_scope(item.scope) }.transform_values(&:count)
   end
   
   def all_items_ear_by_scope
@@ -33,7 +39,7 @@ class ProcessedFile < ApplicationRecord
     # FIXED: Load SQL data for accurate EAR calculations including Total Demand
     sql_caches = load_sql_caches_for_analytics
 
-    processed_items.group_by(&:scope).transform_values do |items|
+    processed_items.group_by { |item| self.class.normalize_scope(item.scope) }.transform_values do |items|
       items.sum do |item|
         total_demand = sql_caches[:total_demand][item.item.to_s.strip]
         min_price = sql_caches[:min_price][item.item.to_s.strip]

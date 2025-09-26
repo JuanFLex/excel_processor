@@ -76,11 +76,7 @@
                       %p.text-2xl.font-semibold.text-gray-900
                         = number_to_human(@processed_file.unique_items_count).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe
                       %p.text-xs.text-gray-500.mt-1 Total parts
-                  - raw_scope_data = @processed_file.unique_items_by_scope
-                  - scope_data = {}
-                  - raw_scope_data.each do |scope, count|
-                    - normalized_scope = (scope&.downcase&.strip == 'in scope') ? 'In scope' : 'Out of scope'
-                    - scope_data[normalized_scope] = (scope_data[normalized_scope] || 0) + count
+                  - scope_data = @processed_file.unique_items_by_scope
                   - scope_colors = scope_data.keys.map { |scope| scope == "In scope" ? "#10B981" : "#EF4444" }
                   = pie_chart scope_data, height: "100%", colors: scope_colors, donut: true, library: { cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: 'function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const percentage = Math.round((context.raw / total) * 100); return `${context.label}: ${context.raw} (${percentage}%)`; }' } } } }
                 .mt-4.flex.justify-center.space-x-4
@@ -93,11 +89,7 @@
 
               -# EAR Chart
               .bg-white.border.border-gray-200.rounded-lg.p-6
-                - raw_ear_by_scope = @processed_file.all_items_ear_by_scope
-                - ear_by_scope = {}
-                - raw_ear_by_scope.each do |scope, ear_value|
-                  - normalized_scope = (scope&.downcase&.strip == 'in scope') ? 'In scope' : 'Out of scope'
-                  - ear_by_scope[normalized_scope] = (ear_by_scope[normalized_scope] || 0) + ear_value
+                - ear_by_scope = @processed_file.all_items_ear_by_scope
                 - total_ear = @processed_file.all_items_total_ear
                 %h3.text-lg.font-medium.text-gray-900.text-center.mb-4 EAR Value
                 .relative.h-64

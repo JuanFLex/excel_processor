@@ -303,8 +303,18 @@ class FileUploadsController < ApplicationController
   # Apply simple filters to items query
   def apply_export_filters(items_query, filters)
     # Scope filters - only apply if something is selected
+    # FIXED: Handle scope normalization like the model methods
     if filters['scope']&.any?
-      items_query = items_query.where(scope: filters['scope'])
+      # Get all distinct scopes from the database
+      all_scopes = items_query.distinct.pluck(:scope).compact
+
+      # Find which raw scopes normalize to the selected filters
+      matching_scopes = all_scopes.select do |raw_scope|
+        normalized = ProcessedFile.normalize_scope(raw_scope)
+        filters['scope'].include?(normalized)
+      end
+
+      items_query = items_query.where(scope: matching_scopes)
     end
     # If scope array is empty or nil, ignore this filter (show all scopes)
     
@@ -332,84 +342,13 @@ class FileUploadsController < ApplicationController
     items_query
   end
 
-  # Generate filtered Excel with full format (same as original)
+  # Generate filtered Excel with full format using centralized service
   def generate_full_filtered_excel(items_query)
-    temp_file_path = Rails.root.join('tmp', "filtered_#{@processed_file.id}_#{Time.current.to_i}.xlsx")
-    
+    Rails.logger.info "🔄 [EXPORT] Generating filtered Excel using ExcelGeneratorService"
+
     filtered_items = items_query.to_a
-    
-    package = Axlsx::Package.new
-    workbook = package.workbook
-    
-    workbook.add_worksheet(name: "Filtered Items") do |sheet|
-      # Same headers as original
-      headers = [
-        'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME',
-        'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
-        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag',
-        'Potential Coreworks Cross', 'EAR', 'EAR Threshold Status',
-        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number', 
-        'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
-      ]
-      
-      # Define styles matching original Excel format
-      header_style = workbook.styles.add_style(
-        bg_color: "FA4616",  # Orange for quote form columns
-        fg_color: "FFFFFF",
-        b: true,
-        alignment: { horizontal: :center },
-        font_name: "Century Gothic",
-        sz: 11
-      )
-
-      auxiliary_style = workbook.styles.add_style(
-        bg_color: "5498c6",  # Blue for auxiliary columns
-        fg_color: "FFFFFF", 
-        b: true,
-        alignment: { horizontal: :center },
-        font_name: "Century Gothic",
-        sz: 11
-      )
-      
-      # Define which columns are from Quote form (use ORANGE)
-      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'Commodity']
-      
-      # Create array of styles based on column name
-      header_styles = headers.map do |header|
-        quote_form_columns.include?(header) ? header_style : auxiliary_style
-      end
-
-      # Add header with column-specific styling
-      sheet.add_row headers, style: header_styles
-      
-      # Add filtered data with real SQL lookups (optimized with batch processing)
-      # Pre-load all SQL data in batches to avoid N+1 queries
-      sql_caches = load_sql_caches_for_export(filtered_items)
-      
-      item_tracker = Set.new
-      filtered_items.each do |item|
-        # Track unique items (same logic as main generation)
-        unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
-        item_tracker.add(item.item)
-        
-        # Lookup data from pre-loaded caches (optimized batch processing)
-        total_demand_data = sql_caches[:total_demand][item.item.to_s.strip] if sql_caches[:total_demand]
-        min_price_data = sql_caches[:min_price][item.item.to_s.strip] if sql_caches[:min_price]
-        cross_ref_mpn = sql_caches[:cross_ref][item.mfg_partno.to_s.strip] if sql_caches[:cross_ref] && item.mfg_partno
-        
-        sheet.add_row [
-          item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
-          item.description, item.site, item.std_cost, item.last_purchase_price,
-          item.last_po, item.eau, item.commodity, item.scope, unique_flg,
-          cross_ref_mpn, item.ear_value(total_demand_data, min_price_data), item.ear_threshold_status(total_demand_data, min_price_data),
-          'NO', '', '', '', 
-          total_demand_data, min_price_data
-        ]
-      end
-    end
-    
-    package.serialize(temp_file_path)
-    temp_file_path
+    excel_generator = ExcelGeneratorService.new(@processed_file)
+    excel_generator.generate_excel_file(filtered_items)
   end
 
   # Generate column mapping preview (fast process)
@@ -476,88 +415,4 @@ class FileUploadsController < ApplicationController
     end
   end
 
-  # Optimized batch loading of SQL caches for export functionality
-  def load_sql_caches_for_export(filtered_items)
-    caches = {
-      total_demand: {},
-      min_price: {},
-      cross_ref: {}
-    }
-    
-    # Skip if using mock SQL server
-    return caches if ENV['MOCK_SQL_SERVER'] == 'true'
-    
-    # Extract unique items and MPNs
-    unique_items = filtered_items.map { |item| item.item.to_s.strip }.compact.uniq
-    unique_mpns = filtered_items.map { |item| item.mfg_partno.to_s.strip }.compact.uniq.reject(&:empty?)
-    
-    Rails.logger.info "🔍 [EXPORT] Loading SQL caches for #{unique_items.size} unique items and #{unique_mpns.size} unique MPNs"
-    
-    begin
-      # Load Total Demand cache (only if enabled for this processed file)
-      if @processed_file.enable_total_demand_lookup && unique_items.any?
-        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_items|
-          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
-          
-          result = ItemLookup.connection.select_all(
-            "SELECT ITEM, TOTAL_DEMAND 
-             FROM ExcelProcessorAMLfind 
-             WHERE ITEM IN (#{quoted_items}) AND TOTAL_DEMAND IS NOT NULL"
-          )
-          
-          result.rows.each do |row|
-            caches[:total_demand][row[0]] = row[1]
-          end
-        end
-        Rails.logger.info "🔍 [EXPORT] Loaded #{caches[:total_demand].size} Total Demand entries"
-      end
-      
-      # Load Min Price cache
-      if unique_items.any?
-        unique_items.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_items|
-          quoted_items = batch_items.map { |item| "'#{item.gsub("'", "''")}'" }.join(',')
-          
-          result = ItemLookup.connection.select_all(
-            "SELECT ITEM, MIN_PRICE 
-             FROM ExcelProcessorAMLfind 
-             WHERE ITEM IN (#{quoted_items}) AND MIN_PRICE IS NOT NULL"
-          )
-          
-          result.rows.each do |row|
-            caches[:min_price][row[0]] = row[1]
-          end
-        end
-        Rails.logger.info "🔍 [EXPORT] Loaded #{caches[:min_price].size} Min Price entries"
-      end
-      
-      # Load Cross Reference cache
-      if unique_mpns.any?
-        # Apply component grade filter based on processed file configuration
-        include_medical_auto = @processed_file&.include_medical_auto_grades || false
-        grade_filter = include_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
-
-        unique_mpns.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |batch_mpns|
-          quoted_mpns = batch_mpns.map { |mpn| "'#{mpn.gsub("'", "''")}'" }.join(',')
-
-          result = ItemLookup.connection.select_all(
-            "SELECT CROSS_REF_MPN, INFINEX_MPN
-             FROM INX_dataLabCrosses
-             WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL
-             #{grade_filter}"
-          )
-          
-          result.rows.each do |row|
-            caches[:cross_ref][row[0]] = row[1]
-          end
-        end
-        Rails.logger.info "🔍 [EXPORT] Loaded #{caches[:cross_ref].size} Cross Reference entries"
-      end
-      
-    rescue => e
-      Rails.logger.error "❌ [EXPORT] Error loading SQL caches: #{e.message}"
-      # Return empty caches so export continues without SQL data
-    end
-
-    caches
-  end
 end
