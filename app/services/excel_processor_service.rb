@@ -1213,8 +1213,6 @@ class ExcelProcessorService
   end
 
   def cache_age(cache_key)
-    return "never loaded" if @@shared_cache[cache_key][:loaded_at].nil?
-    age_seconds = Time.current - @@shared_cache[cache_key][:loaded_at]
-    "#{(age_seconds / 60).round(1)}min"
+    TimeFormatter.cache_age_from(@@shared_cache[cache_key][:loaded_at])
   end
 end
