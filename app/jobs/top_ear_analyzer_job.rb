@@ -111,81 +111,14 @@ class TopEarAnalyzerJob < ApplicationJob
   end
 
   def generate_excel_from_items(processed_file)
-    temp_file_path = Rails.root.join('storage', "processed_#{processed_file.id}_#{Time.current.to_i}.xlsx")
-
-    items = processed_file.processed_items.to_a
-
-    package = Axlsx::Package.new
-    workbook = package.workbook
-
-    workbook.add_worksheet(name: "Processed Items") do |sheet|
-      # Same headers as original
-      headers = [
-        'SFDC_QUOTE_NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME',
-        'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE',
-        'LAST_PO', 'EAU', 'Commodity', 'Scope', 'Part Duplication Flag',
-        'Potential Coreworks Cross', 'EAR', 'EAR Threshold Status',
-        'Previously Quoted', 'Quote Date', 'Previous SFDC Quote Number',
-        'Previously Quoted INX_MPN', 'Total Demand', 'Min Price'
-      ]
-
-      # Define styles matching original Excel format
-      header_style = workbook.styles.add_style(
-        bg_color: "FA4616",  # Orange for quote form columns
-        fg_color: "FFFFFF",
-        b: true,
-        alignment: { horizontal: :center },
-        font_name: "Century Gothic",
-        sz: 11
-      )
-
-      auxiliary_style = workbook.styles.add_style(
-        bg_color: "5498c6",  # Blue for auxiliary columns
-        fg_color: "FFFFFF",
-        b: true,
-        alignment: { horizontal: :center },
-        font_name: "Century Gothic",
-        sz: 11
-      )
-
-      # Define which columns are from Quote form (use ORANGE)
-      quote_form_columns = ['ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 'LAST_PO', 'EAU', 'Commodity']
-
-      # Create array of styles based on column name
-      header_styles = headers.map do |header|
-        quote_form_columns.include?(header) ? header_style : auxiliary_style
-      end
-
-      # Add header with column-specific styling
-      sheet.add_row headers, style: header_styles
-
-      # FIXED: Load SQL data for accurate EAR calculations and complete Excel data
-      sql_caches = load_sql_caches_for_regeneration(processed_file, items)
-
-      item_tracker = Set.new
-      items.each do |item|
-        # Track unique items (same logic as main generation)
-        unique_flg = item_tracker.include?(item.item) ? 'AML' : 'Unique'
-        item_tracker.add(item.item)
-
-        # Get SQL data for this item
-        total_demand_data = sql_caches[:total_demand][item.item.to_s.strip]
-        min_price_data = sql_caches[:min_price][item.item.to_s.strip]
-        cross_ref_mpn = sql_caches[:cross_ref][item.mfg_partno.to_s.strip] if item.mfg_partno
-
-        sheet.add_row [
-          item.sugar_id, item.item, item.mfg_partno, item.global_mfg_name,
-          item.description, item.site, item.std_cost, item.last_purchase_price,
-          item.last_po, item.eau, item.commodity, item.scope, unique_flg,
-          cross_ref_mpn, item.ear_value(total_demand_data, min_price_data), item.ear_threshold_status(total_demand_data, min_price_data),
-          'NO', '', '', '',
-          total_demand_data, min_price_data
-        ]
-      end
-    end
-
-    package.serialize(temp_file_path)
-    temp_file_path.to_s
+    Rails.logger.info "🔄 [AUTO-AI] Regenerating Excel file with AI corrections..."
+    
+    # Use centralized Excel generation service
+    excel_generator = ExcelGeneratorService.new(processed_file)
+    file_path = excel_generator.generate_excel_file
+    
+    Rails.logger.info "✅ [AUTO-AI] Excel file regenerated: #{file_path}"
+    file_path
   end
 
   # Load SQL caches for Excel regeneration (same logic as ExcelProcessorService)
