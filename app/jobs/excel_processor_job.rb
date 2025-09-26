@@ -4,7 +4,7 @@ class ExcelProcessorJob < ApplicationJob
   discard_on StandardError do |job, error|
     # Actualizar el estado del archivo en caso de error
     processed_file = job.arguments.first
-    processed_file.update(status: 'failed')
+    processed_file.update(status: 'failed', error_message: error.message)
     
     # Registrar el error
     Rails.logger.error("Error in ExcelProcessorJob: #{error.message}")
@@ -57,7 +57,7 @@ class ExcelProcessorJob < ApplicationJob
       # Procesamiento original (upload nuevo)
       # Verificar si el archivo existe
       unless File.exist?(file_path)
-        processed_file.update(status: 'failed')
+        processed_file.update(status: 'failed', error_message: 'Original file not found')
         return
       end
       
@@ -91,8 +91,8 @@ class ExcelProcessorJob < ApplicationJob
         # Registrar error y actualizar estado
         Rails.logger.error("Error in ExcelProcessorJob: #{e.message}")
         Rails.logger.error(e.backtrace.join("\n"))
-        
-        processed_file.update(status: 'failed')
+
+        processed_file.update(status: 'failed', error_message: e.message)
         
         # Re-lanzar la excepción para que el manejador discard_on la capture
         raise e

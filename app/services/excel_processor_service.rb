@@ -192,7 +192,7 @@ class ExcelProcessorService
       
       { success: true }
     rescue => e
-      @processed_file.update(status: 'failed')
+      @processed_file.update(status: 'failed', error_message: e.message)
       Rails.logger.error("❌ [DEMO] ERROR: #{e.message}")
       { success: false, error: e.message }
     end
