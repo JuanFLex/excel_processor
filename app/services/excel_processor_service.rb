@@ -630,6 +630,9 @@ class ExcelProcessorService
         # Si Previously Quoted = YES, forzar scope a "In scope"
         final_scope = proposal_data[:previously_quoted] == 'YES' ? 'In scope' : item.scope
 
+        # DEBUG: Log final values before writing to Excel
+        Rails.logger.info "🔍 [DEBUG EXCEL] Writing #{item.item} - Previously Quoted: #{proposal_data[:previously_quoted]}"
+
         sheet.add_row [
           item.sugar_id,  # Mapea a SFDC_QUOTE_NUMBER
           item.item,
@@ -643,7 +646,7 @@ class ExcelProcessorService
           item.eau,
           item.commodity,
           final_scope,
-          unique_flg, 
+          unique_flg,
           lookup_data&.dig(:mpn),
           item.ear_value(total_demand_data, min_price_data),  # EAR (con decimales, puede usar fallbacks)
           item.ear_threshold_status(total_demand_data, min_price_data),  # EAR Threshold Status
@@ -653,7 +656,7 @@ class ExcelProcessorService
           proposal_data[:inx_mpn],
           total_demand_data,
           min_price_data
-          
+
         ]
       end
       

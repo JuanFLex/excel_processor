@@ -12,7 +12,7 @@ echo "Presiona Ctrl+C para salir"
 echo ""
 
 # Filtrar y colorear logs específicos de proposal quotes
-tail -f log/development.log | grep -E "(DEBUG CACHE|DEBUG QUOTE|DFS-640N0203|Proposal quotes cache loaded|Processing item.*DFS|Proposal result.*DFS)" | while read line; do
+tail -f log/development.log | grep -E "(DEBUG CACHE|DEBUG QUOTE|DEBUG EXCEL|DFS-640N0203|Proposal quotes cache loaded|Processing item.*DFS|Proposal result.*DFS)" | while read line; do
     if [[ $line == *"DEBUG CACHE"* ]]; then
         # Logs de cache en verde brillante
         echo -e "\033[1;32m$line\033[0m"
