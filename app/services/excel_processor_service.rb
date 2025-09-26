@@ -620,7 +620,10 @@ class ExcelProcessorService
         item_tracker.add(item.item)
         lookup_data = lookup_cross_reference(item.mfg_partno) 
 
+        # DEBUG: Log lookup details
+        Rails.logger.info "🔍 [DEBUG] Processing item: #{item.item}, mfg_partno: #{item.mfg_partno}"
         proposal_data = lookup_proposal_quote(item.item, item.mfg_partno)
+        Rails.logger.info "🔍 [DEBUG] Proposal result for #{item.item}: #{proposal_data[:previously_quoted]}"
         total_demand_data = lookup_total_demand(item.item)
         min_price_data = lookup_min_price(item.item)
         
@@ -978,6 +981,10 @@ class ExcelProcessorService
 
     load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
     Rails.logger.info "⚡ [PERFORMANCE] Proposal quotes cache loaded: #{cache_size} entries in #{load_time}ms"
+    Rails.logger.info "🔍 [DEBUG CACHE] DFS-640N0203 in cache: #{@proposal_quotes_cache.key?('DFS-640N0203')}"
+    if @proposal_quotes_cache.key?('DFS-640N0203')
+      Rails.logger.info "🔍 [DEBUG CACHE] DFS-640N0203 data: #{@proposal_quotes_cache['DFS-640N0203']}"
+    end
 
     # Store in shared cache
     @@shared_cache[:proposals] = {
@@ -989,23 +996,27 @@ class ExcelProcessorService
 
   def lookup_proposal_quote(item, mfg_partno = nil)
     return nil if item.blank?
-    
+
+    # DEBUG: Log cache state and parameters
+    Rails.logger.info "🔍 [DEBUG QUOTE] Item: '#{item}', MFG: '#{mfg_partno}', Cache size: #{@proposal_quotes_cache&.size || 'nil'}"
+
     # Si el item es igual al mfg_partno, significa que estamos usando fallback MPN
     # En este caso, no buscar y devolver "NO" directamente
     if mfg_partno.present? && item == mfg_partno
-      Rails.logger.debug "🚫 [PROPOSAL] Skipping lookup for MPN fallback: #{item}"
+      Rails.logger.info "🚫 [DEBUG QUOTE] Skipping MPN fallback for: #{item}"
       return {
         previously_quoted: 'NO',
         quote_date: nil,
         previous_sfdc_quote_number: nil
       }
     end
-    
+
     # Si existe en cache, devolver datos
     if @proposal_quotes_cache.key?(item)
+      Rails.logger.info "✅ [DEBUG QUOTE] Found #{item} in cache: YES"
       @proposal_quotes_cache[item]
     else
-      # Si no existe, devolver estructura con "NO"
+      Rails.logger.info "❌ [DEBUG QUOTE] #{item} NOT in cache: NO (first 5 keys: #{@proposal_quotes_cache&.keys&.first(5)})"
       {
         previously_quoted: 'NO',
         quote_date: nil,
