@@ -151,7 +151,7 @@
           - total_ear = all_items.sum { |item| item.ear_value || 0 }
           - in_scope_items = all_items.select { |item| ProcessedFile.normalize_scope(item.scope) == 'In scope' }
           - in_scope_ear = in_scope_items.sum { |item| item.ear_value || 0 }
-          - meeting_threshold_ear = in_scope_items.select { |item| item.ear_value >= ExcelProcessorConfig::EAR_THRESHOLD }.sum { |item| item.ear_value || 0 }
+          - meeting_threshold_ear = in_scope_items.select { |item| item.ear_value && item.ear_value >= ExcelProcessorConfig::EAR_THRESHOLD }.sum { |item| item.ear_value || 0 }
           - level1_data[level1] = { parts_count: data[:parts_set].size, total_ear: total_ear, in_scope_ear: in_scope_ear, meeting_threshold_ear: meeting_threshold_ear }
 
         -# Sort by total EAR descending
