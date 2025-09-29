@@ -125,29 +125,60 @@ class ProcessedFile < ApplicationRecord
       end
     end
     
-    # Calcular métricas de cada categoría
+    # Preparar estructuras de lookup para calculate_metrics
+    lookups = {
+      quoted_items: quoted_items_set,
+      cross_ref_items: cross_ref_items_set
+    }
+
+    # Calcular métricas de cada categoría con filtros correctos
     {
-      in_scope_total: calculate_metrics(categories[:in_scope_total]),
-      previously_quoted: calculate_metrics(categories[:previously_quoted]),
-      meeting_threshold: calculate_metrics(categories[:meeting_threshold]),
-      crosses_threshold: calculate_metrics(categories[:crosses_threshold])
+      in_scope_total: calculate_metrics(categories[:in_scope_total], :in_scope_total, sql_caches, lookups),
+      previously_quoted: calculate_metrics(categories[:previously_quoted], :previously_quoted, sql_caches, lookups),
+      meeting_threshold: calculate_metrics(categories[:meeting_threshold], :meeting_threshold, sql_caches, lookups),
+      crosses_threshold: calculate_metrics(categories[:crosses_threshold], :crosses_threshold, sql_caches, lookups)
     }
   end
   
-  def calculate_metrics(unique_items_in_category)
+  def calculate_metrics(unique_items_in_category, category_type, sql_caches, lookups)
     # Conteo: usar los items únicos que recibe
     count = unique_items_in_category.count
 
-    # EAR: buscar TODOS los items que correspondan a estos únicos
+    # EAR: aplicar EXACTAMENTE los mismos filtros que se usaron para categorizar
     if unique_items_in_category.any?
       item_numbers = unique_items_in_category.map(&:item).uniq
-      scope_value = unique_items_in_category.first.scope
 
-      # FIXED: Load SQL data for accurate EAR calculations
-      sql_caches = load_sql_caches_for_analytics
+      # Aplicar MISMOS filtros usados para categorización a TODOS los processed_items
+      all_matching_items = processed_items.where(item: item_numbers).select do |item|
+        case category_type
+        when :in_scope_total
+          item.scope == 'In scope'
+        when :previously_quoted
+          item.scope == 'In scope' && lookups[:quoted_items].include?(item.item)
+        when :meeting_threshold
+          if item.scope == 'In scope'
+            total_demand = sql_caches[:total_demand][item.item.to_s.strip]
+            min_price = sql_caches[:min_price][item.item.to_s.strip]
+            ear_value = item.ear_value(total_demand, min_price)
+            ear_value && ear_value >= ExcelProcessorConfig::EAR_THRESHOLD
+          else
+            false
+          end
+        when :crosses_threshold
+          if item.scope == 'In scope'
+            total_demand = sql_caches[:total_demand][item.item.to_s.strip]
+            min_price = sql_caches[:min_price][item.item.to_s.strip]
+            ear_value = item.ear_value(total_demand, min_price)
+            (ear_value && ear_value >= ExcelProcessorConfig::EAR_THRESHOLD &&
+             lookups[:cross_ref_items].include?(item.mfg_partno))
+          else
+            false
+          end
+        else
+          false
+        end
+      end
 
-      # Buscar todos los items que coincidan por item number y scope
-      all_matching_items = processed_items.where(item: item_numbers, scope: scope_value)
       ear = all_matching_items.sum do |item|
         total_demand = sql_caches[:total_demand][item.item.to_s.strip]
         min_price = sql_caches[:min_price][item.item.to_s.strip]
@@ -206,7 +237,7 @@ class ProcessedFile < ApplicationRecord
 
         # Apply component grade filter based on processed file configuration
         include_medical_auto = self.include_medical_auto_grades || false
-        grade_filter = enable_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
+        grade_filter = include_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
 
         # NUEVO: Agregar timeout explícito y usar execute para mayor control
         result = ItemLookup.connection.execute(
