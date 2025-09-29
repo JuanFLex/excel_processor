@@ -171,18 +171,8 @@
               - level1_summary.each do |level1, data|
                 - percentage = total_ear > 0 ? ((data[:ear] / total_ear) * 100).round(1) : 0
                 - color_class = case percentage; when 0..5 then "text-gray-600"; when 5..15 then "text-blue-600"; when 15..30 then "text-orange-600"; else "text-green-600 font-semibold"; end
-                - level1_ear_in_scope = data[:items].select { |item| item.scope == 'In scope' }.sum do |item|
-                  - total_demand = sql_caches[:total_demand][item.item.to_s.strip]
-                  - min_price = sql_caches[:min_price][item.item.to_s.strip]
-                  - item.ear_value(total_demand, min_price) || 0
-                - level1_ear_meeting_threshold = data[:items].select do |item|
-                  - total_demand = sql_caches[:total_demand][item.item.to_s.strip]
-                  - min_price = sql_caches[:min_price][item.item.to_s.strip]
-                  - item.scope == 'In scope' && item.ear_threshold_status(total_demand, min_price) == 'Compliant'
-                - .sum do |item|
-                  - total_demand = sql_caches[:total_demand][item.item.to_s.strip]
-                  - min_price = sql_caches[:min_price][item.item.to_s.strip]
-                  - item.ear_value(total_demand, min_price) || 0
+                - level1_ear_in_scope = data[:items].select { |item| item.scope == 'In scope' }.sum { |item| total_demand = sql_caches[:total_demand][item.item.to_s.strip]; min_price = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(total_demand, min_price) || 0 }
+                - level1_ear_meeting_threshold = data[:items].select { |item| total_demand = sql_caches[:total_demand][item.item.to_s.strip]; min_price = sql_caches[:min_price][item.item.to_s.strip]; item.scope == 'In scope' && item.ear_threshold_status(total_demand, min_price) == 'Compliant' }.sum { |item| total_demand = sql_caches[:total_demand][item.item.to_s.strip]; min_price = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(total_demand, min_price) || 0 }
                 %tr.hover:bg-gray-50
                   %td.px-4.py-3.text-sm.font-medium.text-gray-900
                     = level1
