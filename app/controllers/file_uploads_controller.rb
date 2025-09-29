@@ -52,7 +52,7 @@ class FileUploadsController < ApplicationController
     @processed_file = ProcessedFile.find(params[:id])
     @items_sample = @processed_file.processed_items.limit(5)
     @analytics = @processed_file.analytics
-    
+
     # Pre-cargar commodity references en batch para evitar N+1 en la vista
     if @processed_file.unique_items_array.any?
       unique_commodities = @processed_file.unique_items_array.map(&:commodity).uniq.compact.reject(&:blank?)
@@ -61,6 +61,9 @@ class FileUploadsController < ApplicationController
     else
       @commodity_to_level1_cache = {}
     end
+
+    # Pre-cargar SQL caches para cálculos de EAR en la vista
+    @sql_caches = @processed_file.send(:load_sql_caches_for_analytics)
   end
   
   def download
