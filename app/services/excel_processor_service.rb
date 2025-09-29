@@ -524,7 +524,7 @@ class ExcelProcessorService
     ActiveRecord::Base.transaction do
       items.each do |item_values|
         @processed_file.processed_items.create!(
-          sugar_id: item_values['sugar_id'],
+          sfdc_quote_number: item_values['sugar_id'],
           item: item_values['item'],
           mfg_partno: item_values['mfg_partno'],
           global_mfg_name: item_values['global_mfg_name'],

@@ -130,7 +130,7 @@ class ExcelGeneratorService
 
         # Agregar fila de datos
         row = [
-          item.sugar_id,
+          item.sfdc_quote_number,
           item.item,
           item.mfg_partno,
           item.global_mfg_name,

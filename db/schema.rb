@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_24_191336) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_29_132736) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -101,6 +101,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_24_191336) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.jsonb "embedding"
+    t.string "sfdc_quote_number"
     t.index ["commodity"], name: "index_processed_items_on_commodity"
     t.index ["item"], name: "index_processed_items_on_item"
     t.index ["mfg_partno"], name: "index_processed_items_on_mfg_partno"

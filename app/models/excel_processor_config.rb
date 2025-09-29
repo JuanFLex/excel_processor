@@ -4,8 +4,8 @@
 class ExcelProcessorConfig
   # Standard output columns for all processed files
   TARGET_COLUMNS = [
-    'SUGAR_ID', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME', 
-    'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE', 
+    'SFDC QUOTE NUMBER', 'ITEM', 'MFG_PARTNO', 'GLOBAL_MFG_NAME',
+    'DESCRIPTION', 'SITE', 'STD_COST', 'LAST_PURCHASE_PRICE',
     'LAST_PO', 'EAU'
   ].freeze
 

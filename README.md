@@ -101,7 +101,7 @@ Every processed file gets these columns:
 
 | Column | Description | Type |
 |--------|-------------|------|
-| `SUGAR_ID` | Item identifier | String |
+| `SFDC QUOTE NUMBER` | Item identifier | String |
 | `ITEM` | Item code | String |
 | `MFG_PARTNO` | Manufacturer part number | String |
 | `GLOBAL_MFG_NAME` | Manufacturer name | String |

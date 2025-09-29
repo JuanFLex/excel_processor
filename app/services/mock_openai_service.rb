@@ -49,8 +49,8 @@ class MockOpenaiService
             header.to_s.upcase.include?('EAU') || header.to_s.upcase.include?('USAGE')
           when 'SITE'
             header.to_s.upcase.include?('SITE') || header.to_s.upcase.include?('LOCATION')
-          when 'SUGAR_ID'
-            header.to_s.upcase.include?('SUGAR') || header.to_s.upcase.include?('ID')
+          when 'SFDC QUOTE NUMBER'
+            header.to_s.upcase.include?('SFDC') || header.to_s.upcase.include?('QUOTE') || header.to_s.upcase.include?('ID')
           when 'LEVEL3_DESC'
             header.to_s.upcase.include?('LEVEL3') || header.to_s.upcase.include?('L3')
           else

@@ -138,7 +138,7 @@ class OpenaiService
         #{sample_data.map { |row| row.map { |k, v| "#{k}: #{v}" }.join(", ") }.join("\n")}
         
         The target columns I need to map are:
-        - SUGAR_ID: An identifier (string)
+        - SFDC QUOTE NUMBER: An identifier (string)
         - ITEM: An item code (string)
         - MFG_PARTNO: Part number (string)
         - GLOBAL_MFG_NAME: Manufacturer name (string)
