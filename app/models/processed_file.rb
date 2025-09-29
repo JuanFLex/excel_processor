@@ -105,8 +105,8 @@ class ProcessedFile < ApplicationRecord
       # Todos van a in_scope_total
       categories[:in_scope_total] << item
 
-      # Previously quoted - Skip MPN fallback items (same logic as ExcelGeneratorService)
-      if quoted_items_set.include?(item.item) && item.item != item.mfg_partno
+      # Previously quoted
+      if quoted_items_set.include?(item.item)
         categories[:previously_quoted] << item
       end
 
@@ -154,9 +154,7 @@ class ProcessedFile < ApplicationRecord
         when :in_scope_total
           self.class.normalize_scope(item.scope) == 'In scope'
         when :previously_quoted
-          self.class.normalize_scope(item.scope) == 'In scope' &&
-          lookups[:quoted_items].include?(item.item) &&
-          item.item != item.mfg_partno
+          self.class.normalize_scope(item.scope) == 'In scope' && lookups[:quoted_items].include?(item.item)
         when :meeting_threshold
           if self.class.normalize_scope(item.scope) == 'In scope'
             total_demand = sql_caches[:total_demand][item.item.to_s.strip]
