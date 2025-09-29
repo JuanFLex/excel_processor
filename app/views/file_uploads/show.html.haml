@@ -136,25 +136,32 @@
               .bg-gray-50.rounded-lg.p-12.text-center
                 %p.text-sm.text-gray-500= @processed_file.processing? ? 'Processing in progress' : 'No items processed yet'
 
-        -# Level 1 Summary Table (optimizado para evitar N+1 queries)
+        -# Level 1 Summary Table
         - commodity_to_level1 = @commodity_to_level1_cache
-        - sql_caches = @sql_caches
-        - level1_summary = Hash.new { |h, k| h[k] = { parts: 0, ear: 0, items: [] } }
-        - @processed_file.unique_items_array.each do |item|
-          - level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
-          - level1_summary[level1][:parts] += 1
+        - level1_summary = Hash.new { |h, k| h[k] = { parts_set: Set.new, items: [] } }
         - @processed_file.processed_items.each do |item|
           - level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
-          - total_demand = sql_caches[:total_demand][item.item.to_s.strip]
-          - min_price = sql_caches[:min_price][item.item.to_s.strip]
-          - level1_summary[level1][:ear] += (item.ear_value(total_demand, min_price) || 0)
+          - level1_summary[level1][:parts_set].add(item.item.to_s.strip)
           - level1_summary[level1][:items] << item
-        - level1_summary = level1_summary.sort_by { |_, data| -data[:ear] }.to_h
+
+        -# Convert summary data and calculate totals
+        - level1_data = {}
+        - level1_summary.each do |level1, data|
+          - all_items = data[:items]
+          - total_ear = all_items.sum { |item| item.ear_value || 0 }
+          - in_scope_items = all_items.select { |item| ProcessedFile.normalize_scope(item.scope) == 'In scope' }
+          - in_scope_ear = in_scope_items.sum { |item| item.ear_value || 0 }
+          - meeting_threshold_ear = in_scope_items.select { |item| item.ear_value >= ExcelProcessorConfig::EAR_THRESHOLD }.sum { |item| item.ear_value || 0 }
+          - level1_data[level1] = { parts_count: data[:parts_set].size, total_ear: total_ear, in_scope_ear: in_scope_ear, meeting_threshold_ear: meeting_threshold_ear }
+
+        -# Sort by total EAR descending
+        - level1_data = level1_data.sort_by { |_, data| -data[:total_ear] }.to_h
+        - grand_total_ear = level1_data.values.sum { |d| d[:total_ear] }
 
         %h3.text-xs.font-medium.text-gray-700.uppercase.tracking-wider.mb-3
           Level 1 Summary
           %span.text-gray-400.font-normal
-            = "(#{level1_summary.size} categories, $#{number_to_human(level1_summary.values.sum { |d| d[:ear] }, precision: 3)} total)"
+            = "(#{level1_data.size} categories, $#{number_to_human(grand_total_ear, precision: 3)} total)"
 
         .bg-white.border.border-gray-200.rounded-lg.overflow-hidden
           %table.min-w-full
@@ -167,33 +174,30 @@
                 %th.px-4.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Total EAR In Scope
                 %th.px-4.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider IN SCOPE - MEETING THRESHOLD
             %tbody.divide-y.divide-gray-100
-              - total_ear = level1_summary.values.sum { |data| data[:ear] }
-              - level1_summary.each do |level1, data|
-                - percentage = total_ear > 0 ? ((data[:ear] / total_ear) * 100).round(1) : 0
+              - level1_data.each do |level1, data|
+                - percentage = grand_total_ear > 0 ? ((data[:total_ear] / grand_total_ear) * 100).round(1) : 0
                 - color_class = case percentage; when 0..5 then "text-gray-600"; when 5..15 then "text-blue-600"; when 15..30 then "text-orange-600"; else "text-green-600 font-semibold"; end
-                - level1_ear_in_scope = data[:items].select { |item| item.scope == 'In scope' }.sum { |item| total_demand = sql_caches[:total_demand][item.item.to_s.strip]; min_price = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(total_demand, min_price) || 0 }
-                - level1_ear_meeting_threshold = data[:items].select { |item| total_demand = sql_caches[:total_demand][item.item.to_s.strip]; min_price = sql_caches[:min_price][item.item.to_s.strip]; item.scope == 'In scope' && item.ear_threshold_status(total_demand, min_price) == 'Compliant' }.sum { |item| total_demand = sql_caches[:total_demand][item.item.to_s.strip]; min_price = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(total_demand, min_price) || 0 }
                 %tr.hover:bg-gray-50
                   %td.px-4.py-3.text-sm.font-medium.text-gray-900
                     = level1
                     - if level1 == 'Unknown Level 1'
                       %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded.text-red-700.bg-red-50.ml-2 Unmapped
-                  %td.px-4.py-3.text-center.text-sm.text-gray-900= number_with_delimiter(data[:parts])
+                  %td.px-4.py-3.text-center.text-sm.text-gray-900= number_with_delimiter(data[:parts_count])
                   %td.px-4.py-3.text-center.text-sm.text-gray-600
                     .flex.items-center.justify-center
                       .w-12.bg-gray-200.rounded-full.h-2.mr-2
                         .bg-blue-500.h-2.rounded-full{style: "width: #{[percentage, 100].min}%"}
                       = "#{percentage}%"
-                  %td.px-4.py-3.text-right.text-sm{class: color_class}= number_to_currency(data[:ear], precision: 0)
-                  %td.px-4.py-3.text-right.text-sm.text-green-600= number_to_currency(level1_ear_in_scope, precision: 0)
-                  %td.px-4.py-3.text-right.text-sm.text-orange-600= number_to_currency(level1_ear_meeting_threshold, precision: 0)
+                  %td.px-4.py-3.text-right.text-sm{class: color_class}= number_to_currency(data[:total_ear], precision: 0)
+                  %td.px-4.py-3.text-right.text-sm.text-green-600= number_to_currency(data[:in_scope_ear], precision: 0)
+                  %td.px-4.py-3.text-right.text-sm.text-orange-600= number_to_currency(data[:meeting_threshold_ear], precision: 0)
 
               -# Totals Row
               %tr.bg-gray-50.font-semibold
                 %td.px-4.py-3.text-sm.text-gray-900 Total
-                %td.px-4.py-3.text-center.text-sm.text-gray-900= number_with_delimiter(level1_summary.values.sum { |d| d[:parts] })
+                %td.px-4.py-3.text-center.text-sm.text-gray-900= number_with_delimiter(level1_data.values.sum { |d| d[:parts_count] })
                 %td.px-4.py-3.text-center.text-sm.text-gray-900 100%
-                %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(total_ear, precision: 0)
+                %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(grand_total_ear, precision: 0)
                 %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(@analytics[:in_scope_total][:ear], precision: 0)
                 %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(@analytics[:meeting_threshold][:ear], precision: 0)
 
