@@ -162,14 +162,14 @@
                 %th.px-4.py-3.text-center.text-xs.font-medium.text-gray-700.uppercase.tracking-wider % of Total EAR
                 %th.px-4.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Total EAR
                 %th.px-4.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Total EAR In Scope
-                %th.px-4.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider Total EAR Meeting Threshold
+                %th.px-4.py-3.text-right.text-xs.font-medium.text-gray-700.uppercase.tracking-wider IN SCOPE - MEETING THRESHOLD
             %tbody.divide-y.divide-gray-100
               - total_ear = level1_summary.values.sum { |data| data[:ear] }
               - level1_summary.each do |level1, data|
                 - percentage = total_ear > 0 ? ((data[:ear] / total_ear) * 100).round(1) : 0
                 - color_class = case percentage; when 0..5 then "text-gray-600"; when 5..15 then "text-blue-600"; when 15..30 then "text-orange-600"; else "text-green-600 font-semibold"; end
                 - level1_ear_in_scope = data[:items].select { |item| item.scope == 'In scope' }.sum { |item| item.ear_value || 0 }
-                - level1_ear_meeting_threshold = data[:items].select { |item| item.ear_threshold_status == 'Compliant' }.sum { |item| item.ear_value || 0 }
+                - level1_ear_meeting_threshold = data[:items].select { |item| item.scope == 'In scope' && item.ear_threshold_status == 'Compliant' }.sum { |item| item.ear_value || 0 }
                 %tr.hover:bg-gray-50
                   %td.px-4.py-3.text-sm.font-medium.text-gray-900
                     = level1
