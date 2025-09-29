@@ -138,6 +138,7 @@
 
         -# Level 1 Summary Table
         - commodity_to_level1 = @commodity_to_level1_cache
+        - sql_caches = @sql_caches || { total_demand: {}, min_price: {} }
         - level1_summary = Hash.new { |h, k| h[k] = { parts_set: Set.new, items: [] } }
         - @processed_file.processed_items.each do |item|
           - level1 = commodity_to_level1[item.commodity] || 'Unknown Level 1'
@@ -148,10 +149,10 @@
         - level1_data = {}
         - level1_summary.each do |level1, data|
           - all_items = data[:items]
-          - total_ear = all_items.sum { |item| item.ear_value || 0 }
+          - total_ear = all_items.sum { |item| td = sql_caches[:total_demand][item.item.to_s.strip]; mp = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(td, mp) || 0 }
           - in_scope_items = all_items.select { |item| ProcessedFile.normalize_scope(item.scope) == 'In scope' }
-          - in_scope_ear = in_scope_items.sum { |item| item.ear_value || 0 }
-          - meeting_threshold_ear = in_scope_items.select { |item| item.ear_value && item.ear_value >= ExcelProcessorConfig::EAR_THRESHOLD }.sum { |item| item.ear_value || 0 }
+          - in_scope_ear = in_scope_items.sum { |item| td = sql_caches[:total_demand][item.item.to_s.strip]; mp = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(td, mp) || 0 }
+          - meeting_threshold_ear = in_scope_items.select { |item| td = sql_caches[:total_demand][item.item.to_s.strip]; mp = sql_caches[:min_price][item.item.to_s.strip]; ev = item.ear_value(td, mp); ev && ev >= ExcelProcessorConfig::EAR_THRESHOLD }.sum { |item| td = sql_caches[:total_demand][item.item.to_s.strip]; mp = sql_caches[:min_price][item.item.to_s.strip]; item.ear_value(td, mp) || 0 }
           - level1_data[level1] = { parts_count: data[:parts_set].size, total_ear: total_ear, in_scope_ear: in_scope_ear, meeting_threshold_ear: meeting_threshold_ear }
 
         -# Sort by total EAR descending
