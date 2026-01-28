@@ -64,6 +64,10 @@ class FileUploadsController < ApplicationController
 
     # Pre-cargar SQL caches para cálculos de EAR en la vista
     @sql_caches = @processed_file.send(:load_sql_caches_for_analytics)
+
+    # Pre-cargar quoted items para determinar scope efectivo (Previously Quoted → In scope)
+    all_item_codes = @processed_file.processed_items.pluck(:item).compact.uniq
+    @quoted_items_set = @processed_file.send(:load_quoted_items_bulk, all_item_codes)
   end
   
   def download

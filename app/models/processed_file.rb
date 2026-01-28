@@ -83,12 +83,16 @@ class ProcessedFile < ApplicationRecord
   end
   
   def calculate_analytics_optimized
-    # Usar items únicos para conteos correctos, EAR se calcula después en calculate_metrics
-    in_scope_items = unique_items.select { |item| self.class.normalize_scope(item.scope) == 'In scope' }
-
     # PRE-CARGAR todos los lookups de una sola vez (como hace el servicio)
-    quoted_items_set = load_quoted_items_bulk(in_scope_items.map(&:item))
-    cross_ref_items_set = load_cross_ref_items_bulk(in_scope_items.map(&:mfg_partno))
+    all_unique = unique_items
+    quoted_items_set = load_quoted_items_bulk(all_unique.map(&:item))
+    cross_ref_items_set = load_cross_ref_items_bulk(all_unique.map(&:mfg_partno))
+
+    # Determinar in-scope aplicando la misma lógica que el Excel:
+    # Si Previously Quoted = YES, el scope se fuerza a "In scope"
+    in_scope_items = all_unique.select do |item|
+      self.class.normalize_scope(item.scope) == 'In scope' || quoted_items_set.include?(item.item)
+    end
 
     # FIXED: Load SQL data for accurate EAR calculations
     sql_caches = load_sql_caches_for_analytics
@@ -150,13 +154,15 @@ class ProcessedFile < ApplicationRecord
 
       # Aplicar MISMOS filtros usados para categorización a TODOS los processed_items
       all_matching_items = processed_items.where(item: item_numbers).select do |item|
+        # Misma lógica que el Excel: Previously Quoted fuerza "In scope"
+        effectively_in_scope = self.class.normalize_scope(item.scope) == 'In scope' || lookups[:quoted_items].include?(item.item)
         case category_type
         when :in_scope_total
-          self.class.normalize_scope(item.scope) == 'In scope'
+          effectively_in_scope
         when :previously_quoted
-          self.class.normalize_scope(item.scope) == 'In scope' && lookups[:quoted_items].include?(item.item)
+          effectively_in_scope && lookups[:quoted_items].include?(item.item)
         when :meeting_threshold
-          if self.class.normalize_scope(item.scope) == 'In scope'
+          if effectively_in_scope
             total_demand = sql_caches[:total_demand][item.item.to_s.strip]
             min_price = sql_caches[:min_price][item.item.to_s.strip]
             ear_value = item.ear_value(total_demand, min_price)
@@ -165,7 +171,7 @@ class ProcessedFile < ApplicationRecord
             false
           end
         when :crosses_threshold
-          if self.class.normalize_scope(item.scope) == 'In scope'
+          if effectively_in_scope
             total_demand = sql_caches[:total_demand][item.item.to_s.strip]
             min_price = sql_caches[:min_price][item.item.to_s.strip]
             ear_value = item.ear_value(total_demand, min_price)
