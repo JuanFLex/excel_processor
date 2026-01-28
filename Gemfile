@@ -22,6 +22,8 @@ gem "devise", "~> 4.9"          # Autenticación de usuarios
 gem "activerecord-sqlserver-adapter", "~> 7.0"
 gem "tiny_tds", "~> 2.1"
 
+gem 'connection_pool', '< 3.0'   # Fuerza versión 2.x compatible con Ruby 3.3.0
+
 #graficas
 gem 'chartkick'
 
@@ -45,6 +47,8 @@ gem "kaminari", "~> 1.2"
 # Para testing
 group :development, :test do
   gem "debug", platforms: %i[ mri mingw x64_mingw ]
+
+
   
 end
 
