@@ -68,6 +68,16 @@ class FileUploadsController < ApplicationController
     # Pre-cargar quoted items para determinar scope efectivo (Previously Quoted → In scope)
     all_item_codes = @processed_file.processed_items.pluck(:item).compact.uniq
     @quoted_items_set = @processed_file.send(:load_quoted_items_bulk, all_item_codes)
+
+    # EAR de Meeting Threshold con ALL rows (incluye AML) para que coincida con el Excel
+    @meeting_threshold_all_ear = @processed_file.processed_items.sum { |item|
+      effectively_in_scope = ProcessedFile.normalize_scope(item.scope) == 'In scope' || @quoted_items_set.include?(item.item)
+      next 0 unless effectively_in_scope
+      td = @sql_caches[:total_demand][item.item.to_s.strip]
+      mp = @sql_caches[:min_price][item.item.to_s.strip]
+      ev = item.ear_value(td, mp)
+      (ev && ev >= ExcelProcessorConfig::EAR_THRESHOLD) ? ev : 0
+    }
   end
   
   def download

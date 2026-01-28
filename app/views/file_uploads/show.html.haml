@@ -35,7 +35,7 @@
                 - if @analytics
                   - body += "- In Scope EAR: #{number_to_currency(@analytics[:in_scope_total][:ear], precision: 0)}\r\n"
                   - body += "- In Scope Parts: #{number_with_delimiter(@analytics[:in_scope_total][:count])}\r\n"
-                  - body += "- Meeting Threshold EAR: #{number_to_currency(@analytics[:meeting_threshold][:ear], precision: 0)}\r\n"
+                  - body += "- Meeting Threshold EAR: #{number_to_currency(@meeting_threshold_all_ear || @analytics[:meeting_threshold][:ear], precision: 0)}\r\n"
                   - body += "- Meeting Threshold Parts: #{number_with_delimiter(@analytics[:meeting_threshold][:count])}\r\n"
                 - body += "\r\nPlease review and provide quote.\r\n\r\n"
                 - body += "Best regards"
@@ -120,9 +120,10 @@
               -# EAR Values Row
               .grid.grid-cols-4.gap-4.mb-4
                 - [[:in_scope_total, 'blue'], [:previously_quoted, 'green'], [:meeting_threshold, 'orange'], [:crosses_threshold, 'purple']].each do |key, color|
+                  - ear_display = (key == :meeting_threshold && @meeting_threshold_all_ear) ? @meeting_threshold_all_ear : @analytics[key][:ear]
                   .p-6.bg-white.rounded-lg.text-center{class: "border border-#{color}-200"}
                     %p.text-2xl.font-semibold{class: "text-#{color}-700"}
-                      = "$#{number_to_human(@analytics[key][:ear], precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe}"
+                      = "$#{number_to_human(ear_display, precision: 3).gsub(/(Million|Thousand|Billion)/, '<span class="text-xs">\1</span>').html_safe}"
                     %p.text-xs.uppercase.tracking-wider.mt-1{class: "text-#{color}-600"} EAR
               
               -# Parts Count Row
@@ -200,8 +201,8 @@
                 %td.px-4.py-3.text-center.text-sm.text-gray-900= number_with_delimiter(level1_data.values.sum { |d| d[:parts_count] })
                 %td.px-4.py-3.text-center.text-sm.text-gray-900 100%
                 %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(grand_total_ear, precision: 0)
-                %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(@analytics[:in_scope_total][:ear], precision: 0)
-                %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(@analytics[:meeting_threshold][:ear], precision: 0)
+                %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(level1_data.values.sum { |d| d[:in_scope_ear] }, precision: 0)
+                %td.px-4.py-3.text-right.text-sm.text-gray-900= number_to_currency(level1_data.values.sum { |d| d[:meeting_threshold_ear] }, precision: 0)
 
         -# Column Mapping
         .mt-12
