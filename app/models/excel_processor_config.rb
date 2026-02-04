@@ -36,4 +36,6 @@ class ExcelProcessorConfig
     opportunity_to: "lynn.moore@flexcoreworks.com",
     opportunity_cc: "linda.ramos@flex.com;Luis.Cortes@flex.com"
   }.freeze
+  # UI settings
+  COLUMN_PREVIEW_TIMER_SECONDS = 20
 end
