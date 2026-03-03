@@ -248,7 +248,7 @@ class ProcessedFile < ApplicationRecord
         # NUEVO: Agregar timeout explícito y usar execute para mayor control
         result = ItemLookup.connection.execute(
           "SET LOCK_TIMEOUT 60000; SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses
-           WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL
+           WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL AND DATALAB_STATUS = 'ACTIVE'
            #{grade_filter}"
         ).to_a
 
