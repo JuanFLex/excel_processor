@@ -365,7 +365,7 @@ class ExcelGeneratorService
         result = ItemLookup.connection.select_all(
           "SELECT CROSS_REF_MPN, INFINEX_MPN
            FROM INX_dataLabCrosses
-           WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL
+           WHERE CROSS_REF_MPN IN (#{quoted_mpns}) AND INFINEX_MPN IS NOT NULL AND UPPER(LTRIM(RTRIM(DATALAB_STATUS))) = 'ACTIVE'
            #{grade_filter}"
         )
 
