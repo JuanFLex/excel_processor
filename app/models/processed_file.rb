@@ -200,6 +200,7 @@ class ProcessedFile < ApplicationRecord
   # BULK LOAD: Una sola consulta para todos los quoted items
   def load_quoted_items_bulk(item_codes)
     return Set.new if item_codes.empty?
+    return Set.new if ENV['MOCK_SQL_SERVER'] == 'true'
     return Set.new unless defined?(ItemLookup)
     
     begin
@@ -221,6 +222,7 @@ class ProcessedFile < ApplicationRecord
   # BULK LOAD: Consulta en chunks para evitar timeouts con archivos grandes
   def load_cross_ref_items_bulk(mfg_partnos)
     return Set.new if mfg_partnos.empty?
+    return Set.new if ENV['MOCK_SQL_SERVER'] == 'true'
     return Set.new unless defined?(ItemLookup)
     
     ErrorHandler.with_fallback("loading cross references", Set.new) do
