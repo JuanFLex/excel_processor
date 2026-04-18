@@ -1,4 +1,6 @@
 class ProcessedItem < ApplicationRecord
+  EMBEDDING_TEXT_FIELDS = %w[item mfg_partno global_mfg_name description].freeze
+
   belongs_to :processed_file
 
   validates :item, presence: true
@@ -8,10 +10,27 @@ class ProcessedItem < ApplicationRecord
   validates :std_cost, :last_purchase_price, :last_po, numericality: { allow_nil: true }
   validates :eau, numericality: { only_integer: true, allow_nil: true }
 
+  before_save :compute_embedding_text_hash, if: :embedding_text_fields_changed?
+
   # Callback para invalidar cache de embeddings cuando se actualiza
   after_update :invalidate_embedding_cache, if: :saved_change_to_embedding?
 
+  def self.hash_for_text(text)
+    Digest::SHA256.hexdigest(text.to_s)
+  end
+
   private
+
+  def compute_embedding_text_hash
+    return unless has_attribute?(:embedding_text_hash)
+    self.embedding_text_hash = self.class.hash_for_text(recreate_embedding_text)
+  end
+
+  def embedding_text_fields_changed?
+    return false unless has_attribute?(:embedding_text_hash)
+    embedding_text_hash.blank? ||
+      EMBEDDING_TEXT_FIELDS.any? { |f| attribute_changed?(f) }
+  end
 
   def invalidate_embedding_cache
     # Invalidar el cache del texto de embedding cuando se actualiza

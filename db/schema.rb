@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_04_18_133808) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_18_224629) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -105,7 +105,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_133808) do
     t.datetime "updated_at", null: false
     t.jsonb "embedding"
     t.string "sfdc_quote_number"
+    t.string "embedding_text_hash", limit: 64
     t.index ["commodity"], name: "index_processed_items_on_commodity"
+    t.index ["embedding_text_hash"], name: "index_processed_items_on_embedding_text_hash"
     t.index ["item"], name: "index_processed_items_on_item"
     t.index ["mfg_partno"], name: "index_processed_items_on_mfg_partno"
     t.index ["processed_file_id"], name: "index_processed_items_on_processed_file_id"

@@ -128,4 +128,38 @@ class EmbeddingCacheTest < ActiveSupport::TestCase
     # Log performance for monitoring
     puts "✅ Cache lookup for 5 items: #{elapsed_ms}ms"
   end
+
+  test "embedding_text_hash is populated on create" do
+    item = ProcessedItem.create!(
+      processed_file: @processed_file,
+      item: 'HASH-TEST', mfg_partno: 'H1',
+      global_mfg_name: 'Mfg', description: 'Hash test desc'
+    )
+    assert_equal Digest::SHA256.hexdigest(item.recreate_embedding_text),
+                 item.embedding_text_hash
+  end
+
+  test "embedding_text_hash is recomputed when a source field changes" do
+    item = ProcessedItem.create!(
+      processed_file: @processed_file,
+      item: 'HASH-UPDATE', mfg_partno: 'H2',
+      global_mfg_name: 'Mfg', description: 'Original'
+    )
+    before = item.embedding_text_hash
+    item.update!(description: 'Changed')
+    assert_not_equal before, item.embedding_text_hash
+    assert_equal Digest::SHA256.hexdigest(item.recreate_embedding_text),
+                 item.embedding_text_hash
+  end
+
+  test "embedding_text_hash is preserved when only embedding changes" do
+    item = ProcessedItem.create!(
+      processed_file: @processed_file,
+      item: 'HASH-STABLE', mfg_partno: 'H3',
+      global_mfg_name: 'Mfg', description: 'Stable'
+    )
+    before = item.embedding_text_hash
+    item.update!(embedding: [0.1] * 384)
+    assert_equal before, item.reload.embedding_text_hash
+  end
 end

@@ -332,28 +332,28 @@ class OpenaiService
     # Buscar embeddings existentes en base de datos (batch optimizado)
     def preload_embeddings_from_db_batched(texts)
       sanitized_texts = texts.map { |text| sanitize_text_for_embedding(text) }.uniq
-      db_embeddings_cache = {}
-      
-      Rails.logger.info "💾 [BD CACHE] Loading embeddings for #{sanitized_texts.size} unique texts in batches"
-      
-      # Procesar en lotes para evitar queries muy grandes
-      sanitized_texts.each_slice(ExcelProcessorConfig::BATCH_SIZE).with_index do |batch_texts, batch_index|
-        Rails.logger.info "💾 [BD CACHE] Processing batch #{batch_index + 1} (#{batch_texts.size} texts)"
-        
-        # Buscar por el texto completo del embedding, no solo description
-        batch_results = {}
-        ProcessedItem.where.not(embedding: nil).find_each do |item|
-          item_embedding_text = item.recreate_embedding_text
-          if batch_texts.include?(item_embedding_text)
-            batch_results[item_embedding_text] = item.embedding
-            Rails.logger.debug "💾 [BD CACHE] Found existing embedding for: #{item_embedding_text[0..50]}..."
-          end
-        end
-        
-        db_embeddings_cache.merge!(batch_results)
+      return {} if sanitized_texts.empty?
+
+      hash_to_text = sanitized_texts.each_with_object({}) do |text, acc|
+        acc[ProcessedItem.hash_for_text(text)] = text
       end
-      
-      Rails.logger.info "💾 [BD CACHE] Loaded #{db_embeddings_cache.size} existing embeddings from database"
+
+      start = Time.current
+      db_embeddings_cache = {}
+
+      hash_to_text.keys.each_slice(ExcelProcessorConfig::BATCH_SIZE) do |hash_batch|
+        ProcessedItem
+          .where(embedding_text_hash: hash_batch)
+          .where.not(embedding: nil)
+          .pluck(:embedding_text_hash, :embedding)
+          .each do |hash, embedding|
+            text = hash_to_text[hash]
+            db_embeddings_cache[text] ||= embedding
+          end
+      end
+
+      elapsed_ms = ((Time.current - start) * 1000).round(2)
+      Rails.logger.info "💾 [BD CACHE] Loaded #{db_embeddings_cache.size}/#{sanitized_texts.size} embeddings by hash in #{elapsed_ms}ms"
       db_embeddings_cache
     end
     
