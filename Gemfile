@@ -39,6 +39,8 @@ gem "ruby-openai", "~> 6.0"      # Cliente Ruby para OpenAI
 # Vector embeddings and similarity
 gem "matrix", "~> 0.4.2"         # Para operaciones con vectores
 gem "narray", "~> 0.6.1"         # Para cálculos de matrices más eficientes
+gem "pgvector", "~> 0.3"         # Soporte para tipo vector de pgvector en Ruby
+gem "neighbor", "~> 0.5"         # Integración pgvector con ActiveRecord (nearest_neighbors)
 gem "sidekiq", "~> 7.1"          # Para procesar tareas en segundo plano
 
 #para paginacion

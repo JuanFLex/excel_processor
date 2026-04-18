@@ -1,5 +1,6 @@
 class CommodityReference < ApplicationRecord
   include SimilarityCalculable
+  has_neighbors :embedding_vector
   validates :level3_desc, presence: true
   validates :autograde_scope, inclusion: {
     in: ['In Scope', 'Out of Scope', 'in scope', 'out of scope', 'In scope', 'Out scope'],
@@ -76,42 +77,24 @@ class CommodityReference < ApplicationRecord
   end
 
   # Método para encontrar el commodity más similar a una descripción dada
+  # Usa pgvector + índice HNSW vía la gema `neighbor` (nearest_neighbors).
   def self.find_most_similar(description_embedding, limit = 1)
     return [] if description_embedding.nil?
-    
-    # OPTIMIZACIÓN: Usar PostgreSQL nativo para calcular similitud de coseno
-    # Esto evita cargar 2999 records en memoria y hacer cálculos en Ruby
-    
+
     start_time = Time.current
-    
-    # Convertir array de Ruby a formato JSON para PostgreSQL
-    query_embedding_json = description_embedding.to_json
-    
-    # Query PostgreSQL que calcula similitud de coseno usando operaciones JSONB
-    # Fórmula: dot_product(A, B) donde A y B están normalizados (similitud = producto punto)
-    similarity_sql = <<~SQL
-      SELECT *, 
-             (
-               SELECT SUM((embedding_elem::float * query_elem::float))
-               FROM jsonb_array_elements(embedding) WITH ORDINALITY AS t1(embedding_elem, idx)
-               JOIN jsonb_array_elements(?::jsonb) WITH ORDINALITY AS t2(query_elem, idx2) 
-                 ON t1.idx = t2.idx2
-             ) AS cosine_similarity
-      FROM commodity_references
-      WHERE embedding IS NOT NULL
-      ORDER BY cosine_similarity DESC
-      LIMIT ?
-    SQL
-    
-    # Ejecutar query con parámetros preparados para seguridad
-    records = find_by_sql([similarity_sql, query_embedding_json, limit])
-    
+
+    records = where.not(embedding_vector: nil)
+                   .nearest_neighbors(:embedding_vector, description_embedding, distance: "cosine")
+                   .limit(limit)
+                   .to_a
+
+    # `neighbor` expone la distancia de coseno (0..2) en `neighbor_distance`.
+    # Convertimos a similitud de coseno (1 - distance) para mantener el contrato previo.
+    records.each { |r| r.cosine_similarity = 1.0 - r.neighbor_distance.to_f }
+
     elapsed_ms = ((Time.current - start_time) * 1000).round(2)
-    Rails.logger.info "⏱️ [TIMING] PostgreSQL cosine similarity search: #{records.size} results in #{elapsed_ms}ms"
-    
-    # Log para monitoreo de performance (opcional)
-    Rails.logger.debug "🚀 [PERFORMANCE] PostgreSQL similarity search completed for #{limit} results"
-    
+    Rails.logger.info "⏱️ [TIMING] pgvector cosine similarity search: #{records.size} results in #{elapsed_ms}ms"
+
     records
   end
 
@@ -226,12 +209,12 @@ class CommodityReference < ApplicationRecord
   # Método para forzar regeneración de embedding
   def regenerate_embedding!
     Rails.logger.info "🔄 [EMBEDDING] Force regenerating embedding for commodity reference #{id}"
-    
+
     full_text = full_text_for_embedding
     if full_text.present?
       new_embedding = OpenaiService.get_embedding_for_text(full_text)
       if new_embedding
-        update_column(:embedding, new_embedding)
+        update_columns(embedding: new_embedding, embedding_vector: new_embedding)
         Rails.logger.info "✅ [EMBEDDING] Successfully regenerated embedding for commodity reference #{id}"
         true
       else
@@ -288,7 +271,7 @@ class CommodityReference < ApplicationRecord
       if full_text.present?
         new_embedding = OpenaiService.get_embedding_for_text(full_text)
         if new_embedding
-          update_column(:embedding, new_embedding)
+          update_columns(embedding: new_embedding, embedding_vector: new_embedding)
           Rails.logger.info "✅ [EMBEDDING] Successfully regenerated embedding for commodity reference #{id}"
         else
           Rails.logger.error "❌ [EMBEDDING] Failed to generate new embedding for commodity reference #{id}"

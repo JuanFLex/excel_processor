@@ -18,7 +18,7 @@ class CommodityEmbeddingsUpdaterJob < ApplicationJob
         # Actualizar cada registro con su embedding correspondiente
         ActiveRecord::Base.transaction do
           batch.each_with_index do |record, index|
-            record.update(embedding: embeddings[index])
+            record.update(embedding: embeddings[index], embedding_vector: embeddings[index])
           end
         end
       end

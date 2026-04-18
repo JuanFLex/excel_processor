@@ -10,9 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_29_132736) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_18_133808) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+  enable_extension "vector"
 
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
@@ -56,7 +57,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_29_132736) do
     t.text "level3_desc_expanded"
     t.text "typical_mpn_by_manufacturer"
     t.string "autograde_scope"
+    t.vector "embedding_vector", limit: 1536
     t.index ["autograde_scope"], name: "index_commodity_references_on_autograde_scope"
+    t.index ["embedding_vector"], name: "idx_commodity_references_embedding_vector_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["infinex_scope_status"], name: "index_commodity_references_on_infinex_scope_status"
     t.index ["level2_desc"], name: "index_commodity_references_on_level2_desc"
   end

@@ -200,6 +200,8 @@ GEM
     multipart-post (2.4.1)
     mutex_m (0.3.0)
     narray (0.6.1.2)
+    neighbor (0.6.0)
+      activerecord (>= 7.1)
     net-http (0.6.0)
       uri
     net-imap (0.6.2)
@@ -234,6 +236,7 @@ GEM
       ast (~> 2.4.1)
       racc
     pg (1.5.9)
+    pgvector (0.3.3)
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
@@ -430,7 +433,9 @@ DEPENDENCIES
   kaminari (~> 1.2)
   matrix (~> 0.4.2)
   narray (~> 0.6.1)
+  neighbor (~> 0.5)
   pg (~> 1.1)
+  pgvector (~> 0.3)
   puma (~> 6.0)
   rails (~> 7.1.0)
   roo (~> 2.10.0)

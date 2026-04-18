@@ -708,69 +708,20 @@ class ExcelProcessorService
     @cross_references_cache[mfg_partno]
   end
   
-  # Pre-cargar commodity references para optimizar búsqueda de similitud
+  # Con pgvector + HNSW la búsqueda corre directo en Postgres en <10ms,
+  # así que ya no precargamos ~3000 commodities en memoria.
   def load_commodity_references_cache
-    cache_key = :commodities
-
-    if cache_expired?(cache_key)
-      Rails.logger.info "⚡ [CACHE] Refreshing commodity cache (#{cache_age(cache_key)} old)"
-      start_time = Time.current
-
-      # Cargar todos los commodities con embeddings
-      fresh_data = CommodityReference.where.not(embedding: nil).to_a
-
-      # Actualizar cache compartida
-      @@shared_cache[cache_key] = {
-        data: fresh_data,
-        loaded_at: Time.current
-      }
-
-      cache_size = fresh_data.size
-      memory_mb = (cache_size * ExcelProcessorConfig::MEMORY_ESTIMATION_FACTOR / ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(1)
-      load_time = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
-
-      Rails.logger.info "⚡ [CACHE] Commodity cache refreshed: #{cache_size} entries (~#{memory_mb} MB) in #{load_time}ms"
-    else
-      Rails.logger.info "⚡ [CACHE] Using cached commodities (#{cache_age(cache_key)} old, #{@@shared_cache[cache_key][:data].size} entries)"
-    end
-
-    # Asignar cache a variable de instancia para compatibilidad
-    @commodity_references_cache = @@shared_cache[cache_key][:data]
+    Rails.logger.info "⚡ [CACHE] Skipping in-memory commodity preload; using pgvector HNSW index"
+    @commodity_references_cache = []
   end
-  
-  # Método optimizado para encontrar commodity similar usando cache
+
+  # Búsqueda de commodity más similar usando pgvector + HNSW.
   def find_similar_commodity_cached(embedding)
-    return nil if embedding.nil? || @commodity_references_cache.empty?
-    
-    best_match = nil
-    best_similarity = -Float::INFINITY
-    
-    start_time = Time.current
-    batch_cosine_calculations = 0
-    
-    @commodity_references_cache.each do |commodity|
-      next unless commodity.embedding.is_a?(Array)
-      
-      # Calcular similitud de coseno (mismo algoritmo que antes)
-      dot_product = 0
-      commodity.embedding.each_with_index do |val, i|
-        dot_product += val * embedding[i]
-      end
-      
-      batch_cosine_calculations += 1
-      @cosine_calculation_count += 1
-      
-      if dot_product > best_similarity
-        best_similarity = dot_product
-        best_match = commodity
-      end
-    end
-    
-    elapsed_ms = ((Time.current - start_time) * ExcelProcessorConfig::MILLISECONDS_PER_SECOND).round(2)
-    Rails.logger.info "⏱️ [TIMING] Cosine similarity calculations: #{batch_cosine_calculations} calculations in #{elapsed_ms}ms" if elapsed_ms > 1
-    
-    best_match
-    end
+    return nil if embedding.nil?
+
+    @cosine_calculation_count += 1
+    CommodityReference.find_most_similar(embedding, 1).first
+  end
 
   def load_proposal_quotes_cache
     # Check if shared cache exists and is valid

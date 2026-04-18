@@ -58,7 +58,7 @@ class CommodityReferenceLoader
       # Actualizar cada registro con su embedding correspondiente en una sola transacción
       ActiveRecord::Base.transaction do
         batch.each_with_index do |record, index|
-          record.update(embedding: embeddings[index])
+          record.update(embedding: embeddings[index], embedding_vector: embeddings[index])
         end
       end
     end
