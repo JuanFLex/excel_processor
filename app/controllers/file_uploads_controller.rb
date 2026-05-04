@@ -3,7 +3,9 @@ require 'set'
 class FileUploadsController < ApplicationController
   before_action :require_admin_for_delete, only: [:destroy]
   def index
-    @processed_files = ProcessedFile.order(created_at: :desc).page(params[:page]).per(10)
+    @processed_files = current_user.admin? ? 
+      ProcessedFile.includes(:user).order(created_at: :desc).page(params[:page]).per(10) :
+      current_user.processed_files.order(created_at: :desc).page(params[:page]).per(10)
   end
   
   def new
@@ -11,7 +13,11 @@ class FileUploadsController < ApplicationController
   end
   
   def create
-    @processed_file = ProcessedFile.new(original_filename: file_params[:file].original_filename, status: 'pending')
+    @processed_file = ProcessedFile.new(
+      original_filename: file_params[:file].original_filename, 
+      status: 'pending',
+      user: current_user
+    )
     
     # Guardar configuración del multiplicador de volumen
     if file_params[:volume_multiplier_enabled] == '1' && file_params[:volume_multiplier].present?
