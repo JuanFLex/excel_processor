@@ -17,11 +17,14 @@ class TotalDemandLookupTest < ActionDispatch::IntegrationTest
   end
 
   test "ProcessedFile stores Total Demand lookup setting correctly" do
+    user = create_test_user
+    
     # Test enabled setting
     processed_file_enabled = ProcessedFile.create!(
       original_filename: 'test_enabled.csv',
       status: 'pending',
-      enable_total_demand_lookup: true
+      enable_total_demand_lookup: true,
+      user: user
     )
     assert processed_file_enabled.enable_total_demand_lookup, "Should store enabled setting"
     
@@ -29,17 +32,21 @@ class TotalDemandLookupTest < ActionDispatch::IntegrationTest
     processed_file_disabled = ProcessedFile.create!(
       original_filename: 'test_disabled.csv',
       status: 'pending',
-      enable_total_demand_lookup: false
+      enable_total_demand_lookup: false,
+      user: user
     )
     assert_not processed_file_disabled.enable_total_demand_lookup, "Should store disabled setting"
   end
 
   test "ExcelProcessorService respects Total Demand lookup setting" do
+    user = create_test_user
+    
     # Create a processed file with Total Demand lookup disabled
     processed_file = ProcessedFile.create!(
       original_filename: 'test.csv',
       status: 'processing',
-      enable_total_demand_lookup: false
+      enable_total_demand_lookup: false,
+      user: user
     )
     
     service = ExcelProcessorService.new(processed_file)

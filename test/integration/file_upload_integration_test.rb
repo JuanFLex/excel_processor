@@ -8,6 +8,9 @@ class FileUploadIntegrationTest < ActionDispatch::IntegrationTest
     CommodityReference.destroy_all
     ManufacturerMapping.destroy_all
     
+    # Crear y autenticar usuario de prueba
+    @user = setup_test_user
+    
     # Crear datos de prueba necesarios
     create_test_data
   end
@@ -33,9 +36,11 @@ class FileUploadIntegrationTest < ActionDispatch::IntegrationTest
     assert_equal 1, ProcessedFile.count
     processed_file = ProcessedFile.last
     
-    # Verificar estado inicial
-    assert_equal 'queued', processed_file.status
+    # Verificar estado inicial y asociación con usuario
+    assert_equal 'column_preview', processed_file.status
     assert processed_file.original_file.attached?
+    assert_equal @user.id, processed_file.user_id
+    assert_equal @user.email, processed_file.user.email
     
     # Paso 4: Procesar archivo con funcionalidad real
     process_file_real(processed_file)
@@ -58,6 +63,63 @@ class FileUploadIntegrationTest < ActionDispatch::IntegrationTest
     assert items_with_scope.any?, "Should have items with assigned scopes"
     
     puts "✅ Test passed: File uploaded and processed successfully"
+  end
+
+  test "user can only see their own files in index" do
+    # Crear otro usuario y archivo
+    other_user = create_test_user(email: "other@example.com")
+    other_file = ProcessedFile.create!(
+      original_filename: "other_file.xlsx",
+      status: 'completed',
+      user: other_user
+    )
+    
+    # Crear archivo para el usuario actual
+    user_file = ProcessedFile.create!(
+      original_filename: "user_file.xlsx", 
+      status: 'completed',
+      user: @user
+    )
+    
+    # Visitar index
+    get file_uploads_path
+    
+    # Verificar que solo ve su archivo
+    assert_response :success
+    # Use response.body to check content instead of exact text match
+    assert_includes response.body, 'user_file.xlsx'
+    assert_not_includes response.body, 'other_file.xlsx'
+  end
+
+  test "admin can see all files in index" do
+    # Cambiar a admin
+    sign_out @user
+    @admin = setup_admin_user
+    
+    # Crear archivos de diferentes usuarios
+    user1 = create_test_user(email: "user1@example.com")
+    user2 = create_test_user(email: "user2@example.com")
+    
+    file1 = ProcessedFile.create!(
+      original_filename: "file1.xlsx",
+      status: 'completed', 
+      user: user1
+    )
+    
+    file2 = ProcessedFile.create!(
+      original_filename: "file2.xlsx",
+      status: 'completed',
+      user: user2
+    )
+    
+    # Visitar index como admin
+    get file_uploads_path
+    
+    # Verificar que ve todos los archivos
+    assert_response :success
+    # Use response.body to check content instead of exact text match
+    assert_includes response.body, 'file1.xlsx'
+    assert_includes response.body, 'file2.xlsx'
   end
 
   private

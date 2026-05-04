@@ -2,9 +2,11 @@ require 'test_helper'
 
 class EmbeddingCacheTest < ActiveSupport::TestCase
   def setup
+    @user = create_test_user
     @processed_file = ProcessedFile.create!(
       original_filename: 'test_cache.xlsx',
-      status: 'completed'
+      status: 'completed',
+      user: @user
     )
   end
 

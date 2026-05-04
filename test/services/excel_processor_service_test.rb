@@ -14,9 +14,11 @@ class ExcelProcessorServiceTest < ActiveSupport::TestCase
 
   test "automatic scope assignment for items with cross-references" do
     # Crear archivo procesado para test
+    user = create_test_user
     processed_file = ProcessedFile.create!(
       original_filename: 'test_scope.xlsx',
-      status: 'processing'
+      status: 'processing',
+      user: user
     )
     
     service = ExcelProcessorService.new(processed_file)
@@ -51,9 +53,11 @@ class ExcelProcessorServiceTest < ActiveSupport::TestCase
   end
 
   test "scope determination logic with various scenarios" do
+    user = create_test_user
     processed_file = ProcessedFile.create!(
       original_filename: 'test_scope_scenarios.xlsx',
-      status: 'processing'
+      status: 'processing',
+      user: user
     )
     
     service = ExcelProcessorService.new(processed_file)
