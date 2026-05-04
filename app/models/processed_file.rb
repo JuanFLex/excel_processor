@@ -1,6 +1,7 @@
 class ProcessedFile < ApplicationRecord
   has_one_attached :original_file
   has_many :processed_items, dependent: :destroy
+  belongs_to :user
   
   validates :original_filename, presence: true
   validates :status, presence: true, inclusion: { in: ['pending', 'column_preview', 'queued', 'processing', 'completed', 'failed'] }

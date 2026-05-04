@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_04_18_224629) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_04_203706) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -64,6 +64,33 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_224629) do
     t.index ["level2_desc"], name: "index_commodity_references_on_level2_desc"
   end
 
+  create_table "dashboard_widgets", force: :cascade do |t|
+    t.bigint "dashboard_id", null: false
+    t.string "title", null: false
+    t.text "natural_query", null: false
+    t.text "sql_query"
+    t.string "chart_type"
+    t.jsonb "chart_config"
+    t.jsonb "position"
+    t.string "status", default: "pending", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "ai_insights", default: {}
+    t.datetime "last_executed_at"
+    t.datetime "insights_generated_at"
+    t.integer "refresh_interval_minutes", default: 10, null: false
+    t.jsonb "cached_results", default: {}
+    t.index ["dashboard_id"], name: "index_dashboard_widgets_on_dashboard_id"
+    t.index ["status"], name: "index_dashboard_widgets_on_status"
+  end
+
+  create_table "dashboards", force: :cascade do |t|
+    t.string "name"
+    t.jsonb "layout"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "manufacturer_mappings", force: :cascade do |t|
     t.string "original_name", null: false
     t.string "standardized_name", null: false
@@ -84,7 +111,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_224629) do
     t.integer "volume_multiplier"
     t.boolean "enable_total_demand_lookup"
     t.boolean "include_medical_auto_grades"
+    t.bigint "user_id"
     t.index ["status"], name: "index_processed_files_on_status"
+    t.index ["user_id"], name: "index_processed_files_on_user_id"
   end
 
   create_table "processed_items", force: :cascade do |t|
@@ -122,11 +151,18 @@ ActiveRecord::Schema[7.1].define(version: 2026_04_18_224629) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.boolean "admin"
+    t.integer "sign_in_count", default: 0, null: false
+    t.datetime "current_sign_in_at"
+    t.datetime "last_sign_in_at"
+    t.string "current_sign_in_ip"
+    t.string "last_sign_in_ip"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "dashboard_widgets", "dashboards"
+  add_foreign_key "processed_files", "users"
   add_foreign_key "processed_items", "processed_files"
 end

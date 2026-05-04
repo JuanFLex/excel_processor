@@ -7,6 +7,9 @@ class FileRemapIntegrationTest < ActionDispatch::IntegrationTest
     ProcessedItem.destroy_all
     CommodityReference.destroy_all
     
+    # Crear y autenticar usuario de prueba
+    @user = setup_test_user
+    
     # Crear referencias necesarias para el test
     create_test_commodity_references
   end
@@ -118,11 +121,12 @@ class FileRemapIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   def create_initial_processed_file
-    # Crear archivo de prueba
+    # Crear archivo de prueba asociado al usuario
     processed_file = ProcessedFile.create!(
       original_filename: 'test_remap.xlsx',
       status: 'completed',
       processed_at: Time.current,
+      user: @user,
       column_mapping: {
         'ITEM' => 'ITEM',
         'DESCRIPTION' => 'DESCRIPTION',
