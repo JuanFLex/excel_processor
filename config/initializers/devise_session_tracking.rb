@@ -28,7 +28,8 @@ Warden::Manager.after_set_user except: :fetch do |user, auth, opts|
     )
 
     scope = opts[:scope] || :user
-    auth.session(scope)[:session_record_id] = new_session.id
+    # String key: la session se serializa a la cookie y los símbolos se pierden.
+    auth.session(scope)['session_record_id'] = new_session.id
   rescue StandardError => e
     Rails.logger.error "[SessionTracking] Error creating session record: #{e.message}"
   end
@@ -40,7 +41,7 @@ Warden::Manager.before_logout do |user, auth, opts|
   begin
     scope = opts[:scope] || :user
     scope_session = auth.session(scope)
-    session_id = scope_session.is_a?(Hash) ? scope_session[:session_record_id] : nil
+    session_id = scope_session.is_a?(Hash) ? (scope_session['session_record_id'] || scope_session[:session_record_id]) : nil
     next unless session_id
 
     UserSession.find_by(id: session_id)&.close!(reason: 'manual')
