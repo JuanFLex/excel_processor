@@ -5,6 +5,7 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable, :trackable
 
   has_many :processed_files, dependent: :destroy
+  has_many :user_sessions,   dependent: :destroy
 
   def total_files_processed
     processed_files.where(status: 'completed').count
@@ -15,13 +16,20 @@ class User < ApplicationRecord
   end
 
   def last_activity
-    [last_sign_in_at, processed_files.maximum(:updated_at)].compact.max
+    [last_sign_in_at,
+     processed_files.maximum(:updated_at),
+     user_sessions.maximum(:started_at)].compact.max
   end
 
-  def session_duration
-    return nil unless current_sign_in_at && last_sign_in_at
-    return nil if current_sign_in_at == last_sign_in_at
-    
-    (current_sign_in_at - last_sign_in_at) / 1.hour
+  def current_session
+    user_sessions.active.order(started_at: :desc).first
+  end
+
+  def average_session_duration
+    user_sessions.finished.average(:duration_seconds)
+  end
+
+  def total_time_logged_in
+    user_sessions.finished.sum(:duration_seconds)
   end
 end
