@@ -84,22 +84,52 @@ class UserTest < ActiveSupport::TestCase
     assert_equal 1.hour.ago.to_date, @user.last_activity.to_date
   end
 
-  test "session_duration calculates correctly" do
-    # Case 1: No sign in data
-    assert_nil @user.session_duration
+  test "current_session returns the latest active user_session" do
+    assert_nil @user.current_session
 
-    # Case 2: Same current and last sign in
-    time = Time.current
-    @user.update!(current_sign_in_at: time, last_sign_in_at: time)
-    assert_nil @user.session_duration
-
-    # Case 3: Different sign in times
-    @user.update!(
-      current_sign_in_at: 3.hours.ago,
-      last_sign_in_at: 6.hours.ago
+    older = @user.user_sessions.create!(started_at: 2.hours.ago)
+    newer = @user.user_sessions.create!(started_at: 10.minutes.ago)
+    @user.user_sessions.create!(
+      started_at: 1.hour.ago,
+      ended_at: 30.minutes.ago,
+      duration_seconds: 1800,
+      sign_out_reason: 'manual'
     )
-    # Use assert_in_delta for floating point comparison
-    assert_in_delta 3.0, @user.session_duration, 0.01
+
+    assert_equal newer, @user.current_session
+    assert_not_equal older, @user.current_session
+  end
+
+  test "average_session_duration averages only finished sessions" do
+    assert_nil @user.average_session_duration
+
+    @user.user_sessions.create!(
+      started_at: 2.hours.ago, ended_at: 1.hour.ago,
+      duration_seconds: 3600, sign_out_reason: 'manual'
+    )
+    @user.user_sessions.create!(
+      started_at: 4.hours.ago, ended_at: 3.hours.ago,
+      duration_seconds: 1800, sign_out_reason: 'manual'
+    )
+    @user.user_sessions.create!(started_at: 5.minutes.ago)
+
+    assert_in_delta 2700.0, @user.average_session_duration.to_f, 0.01
+  end
+
+  test "total_time_logged_in sums duration_seconds of finished sessions" do
+    assert_equal 0, @user.total_time_logged_in
+
+    @user.user_sessions.create!(
+      started_at: 2.hours.ago, ended_at: 1.hour.ago,
+      duration_seconds: 3600, sign_out_reason: 'manual'
+    )
+    @user.user_sessions.create!(
+      started_at: 4.hours.ago, ended_at: 3.hours.ago,
+      duration_seconds: 1800, sign_out_reason: 'manual'
+    )
+    @user.user_sessions.create!(started_at: 5.minutes.ago)
+
+    assert_equal 5400, @user.total_time_logged_in
   end
 
   test "devise trackable fields are present" do

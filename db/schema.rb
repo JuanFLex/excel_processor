@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_05_04_203706) do
+ActiveRecord::Schema[7.1].define(version: 2026_05_06_224240) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -142,6 +142,22 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_04_203706) do
     t.index ["processed_file_id"], name: "index_processed_items_on_processed_file_id"
   end
 
+  create_table "user_sessions", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.datetime "started_at", null: false
+    t.datetime "ended_at"
+    t.integer "duration_seconds"
+    t.string "ip_address"
+    t.string "user_agent"
+    t.string "sign_out_reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ended_at"], name: "index_user_sessions_on_ended_at"
+    t.index ["started_at"], name: "index_user_sessions_on_started_at"
+    t.index ["user_id", "started_at"], name: "index_user_sessions_on_user_id_and_started_at"
+    t.index ["user_id"], name: "index_user_sessions_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
@@ -165,4 +181,5 @@ ActiveRecord::Schema[7.1].define(version: 2026_05_04_203706) do
   add_foreign_key "dashboard_widgets", "dashboards"
   add_foreign_key "processed_files", "users"
   add_foreign_key "processed_items", "processed_files"
+  add_foreign_key "user_sessions", "users"
 end
