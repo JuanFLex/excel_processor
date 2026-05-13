@@ -96,7 +96,7 @@ Rails.application.configure do
   config.active_record.dump_schema_after_migration = false
 
   config.active_job.queue_adapter = :async
-  config.active_job.queue_adapter.max_threads = ENV.fetch("MAX_THREADS", 5).to_i
+  # Max threads are automatically configured by Rails based on RAILS_MAX_THREADS env var
 
   config.middleware.use Rack::Deflater
   # Enable DNS rebinding protection and other `Host` header attacks.
