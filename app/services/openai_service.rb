@@ -1,6 +1,12 @@
 class OpenaiService
+  # Base URL del endpoint corporativo de Flex (Azure OpenAI compatible)
+  FLEX_API_BASE = "https://flexapimanager-v2.flex.com/WebServer-CSG-BI/openai/deployments".freeze
+
+  # Nombres de modelos/deployments en Flex APIM
+  # NOTA: Asume que deployment_name == model_name en Flex
+  # Si Musavir renombra deployments (ej: prod-gpt-4o-mini), actualizar aquí
   EMBEDDING_MODEL = "text-embedding-3-small"
-  COMPLETION_MODEL = "gpt-4-turbo"
+  COMPLETION_MODEL = "gpt-4o-mini"  # Downgrade de gpt-4-turbo → monitorear regresiones en identify_columns y commodity analysis
 
   # Class-level cache persistente para embeddings (sin TTL - los embeddings no cambian)
   @@embeddings_cache = {}
@@ -53,7 +59,8 @@ class OpenaiService
       end
       
       # Procesar solo los textos que no están en caché
-      client = OpenAI::Client.new
+      # Para Azure, necesitamos cliente específico con deployment en la URL
+      client = create_embeddings_client
       
       # Agrupar textos en lotes de 20 para reducir llamadas a la API
       result_embeddings = Array.new(texts.size)
@@ -115,8 +122,9 @@ class OpenaiService
       end
       
       return {} if sample_rows.empty?
-      
-      client = OpenAI::Client.new
+
+      # Para Azure, necesitamos cliente específico con deployment en la URL
+      client = create_chat_client
       
       # Limitamos la cantidad de filas de muestra para reducir tokens
       sample_data = sample_rows.map(&:to_h).first(3)
@@ -203,8 +211,9 @@ class OpenaiService
       if ENV['MOCK_OPENAI'] == 'true'
         return MockOpenaiService.get_completion(prompt, max_tokens)
       end
-      
-      client = OpenAI::Client.new
+
+      # Para Azure, necesitamos cliente específico con deployment en la URL
+      client = create_chat_client
       
       response = client.chat(
         parameters: {
@@ -230,7 +239,8 @@ class OpenaiService
         return MockOpenaiService.get_completion_json(prompt, max_tokens)
       end
 
-      client = OpenAI::Client.new
+      # Para Azure, necesitamos cliente específico con deployment en la URL
+      client = create_chat_client
 
       response = client.chat(
         parameters: {
@@ -393,6 +403,27 @@ class OpenaiService
       if @@tokens_per_minute % 50_000 < estimated_tokens
         Rails.logger.info "📊 [RATE LIMIT] Tokens usados en este minuto: #{@@tokens_per_minute}/#{TOKEN_LIMIT_PER_MINUTE}"
       end
+    end
+
+    # Crear cliente de Azure OpenAI con deployment específico
+    def create_azure_client(deployment)
+      OpenAI::Client.new(
+        access_token: Rails.application.credentials.dig(:openai, :api_key),
+        uri_base: "#{FLEX_API_BASE}/#{deployment}",
+        api_type: :azure,
+        api_version: "2025-03-01-preview",
+        request_timeout: 120
+      )
+    end
+
+    # Crear cliente específico para embeddings
+    def create_embeddings_client
+      create_azure_client(EMBEDDING_MODEL)
+    end
+
+    # Crear cliente específico para chat completions
+    def create_chat_client
+      create_azure_client(COMPLETION_MODEL)
     end
   end
 end

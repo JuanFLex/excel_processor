@@ -2,7 +2,13 @@ require "openai"
 
 OpenAI.configure do |config|
   config.access_token = Rails.application.credentials.dig(:openai, :api_key)
-  config.organization_id = Rails.application.credentials.dig(:openai, :organization_id) # opcional
+
+  # Configuración para endpoint corporativo de Flex (Azure OpenAI compatible)
+  # NOTA: No configuramos uri_base aquí porque cada operación necesita su propio
+  # deployment en la URL. Los clientes se crean en OpenaiService con URIs específicos.
+  config.api_type = :azure
+  config.api_version = "2025-03-01-preview"
+
   config.request_timeout = 120 # Aumentar timeout para requests más largos
 end
 
