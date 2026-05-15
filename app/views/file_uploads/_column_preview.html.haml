@@ -92,76 +92,105 @@
   }
 
   function approveMapping() {
-    const button = document.getElementById('approveBtn');
-    button.textContent = 'Processing...';
-    button.disabled = true;
-    
-    // Submit form to approve mapping
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/file_uploads/#{@processed_file.id}/approve_mapping`;
-    
-    // Add method override for PATCH
-    const methodInput = document.createElement('input');
-    methodInput.type = 'hidden';
-    methodInput.name = '_method';
-    methodInput.value = 'PATCH';
-    form.appendChild(methodInput);
-    
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'authenticity_token';
-    csrfInput.value = document.querySelector('[name="csrf-token"]').content;
-    form.appendChild(csrfInput);
-    
-    document.body.appendChild(form);
-    form.submit();
-  }
-
-  function updateMapping() {
-    const button = event.target;
+    var button = document.getElementById('approveBtn');
     button.textContent = 'Saving...';
     button.disabled = true;
-    
-    // Collect all mapping inputs
-    const mappings = {};
-    document.querySelectorAll('input[name^="mapping["]').forEach(input => {
-      const field = input.name.match(/mapping\\[(.+)\\]/)[1];
+
+    var mappings = {};
+    document.querySelectorAll('input[name^="mapping["]').forEach(function(input) {
+      var field = input.name.slice('mapping['.length, -1);
       mappings[field] = input.value;
     });
-    
-    // Submit AJAX request to update mapping
-    fetch(`/file_uploads/#{@processed_file.id}/update_mapping`, {
+
+    fetch('/file_uploads/#{@processed_file.id}/update_mapping', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
       },
-      body: JSON.stringify({ mapping: mappings })
+      body: JSON.stringify({ column_mapping: mappings })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
       if (data.success) {
-        // Reset timer state
-        userMadeChanges = false;
-        timeLeft = #{ExcelProcessorConfig::COLUMN_PREVIEW_TIMER_SECONDS};
-        const display = document.getElementById('timerDisplay');
-        const pauseBtn = document.getElementById('pauseTimer');
-        
-        display.innerHTML = 'Auto-approving in <span id="countdown" class="font-semibold">#{ExcelProcessorConfig::COLUMN_PREVIEW_TIMER_SECONDS}</span> seconds';
-        pauseBtn.style.display = 'inline-block';
-        pauseBtn.textContent = 'Pause';
-        
-        startCountdown();
+        button.textContent = 'Processing...';
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/file_uploads/#{@processed_file.id}/approve_mapping';
+
+        var methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'PATCH';
+        form.appendChild(methodInput);
+
+        var csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'authenticity_token';
+        csrfInput.value = document.querySelector('[name="csrf-token"]').content;
+        form.appendChild(csrfInput);
+
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        button.textContent = 'Start Processing';
+        button.disabled = false;
+        alert('Could not save mapping changes. Please try again.');
       }
-      button.textContent = 'Save Changes';
-      button.disabled = false;
     })
-    .catch(error => {
-      console.error('Error:', error);
+    .catch(function(error) {
+      console.error('Save before approve failed:', error);
+      button.textContent = 'Start Processing';
+      button.disabled = false;
+      alert('Network error while saving. Please try again.');
+    });
+  }
+
+  function updateMapping() {
+    var button = event.target;
+    button.textContent = 'Saving...';
+    button.disabled = true;
+
+    try {
+      var mappings = {};
+      document.querySelectorAll('input[name^="mapping["]').forEach(function(input) {
+        var field = input.name.slice('mapping['.length, -1);
+        mappings[field] = input.value;
+      });
+
+      fetch('/file_uploads/#{@processed_file.id}/update_mapping', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ column_mapping: mappings })
+      })
+      .then(function(response) { return response.json(); })
+      .then(function(data) {
+        if (data.success) {
+          userMadeChanges = false;
+          timeLeft = #{ExcelProcessorConfig::COLUMN_PREVIEW_TIMER_SECONDS};
+          var display = document.getElementById('timerDisplay');
+          var pauseBtn = document.getElementById('pauseTimer');
+          display.innerHTML = 'Auto-approving in <span id="countdown" class="font-semibold">#{ExcelProcessorConfig::COLUMN_PREVIEW_TIMER_SECONDS}</span> seconds';
+          pauseBtn.style.display = 'inline-block';
+          pauseBtn.textContent = 'Pause';
+          startCountdown();
+        }
+        button.textContent = 'Save Changes';
+        button.disabled = false;
+      })
+      .catch(function(error) {
+        console.error('Save error:', error);
+        button.textContent = 'Save Changes';
+        button.disabled = false;
+      });
+    } catch(e) {
+      console.error('Save setup error:', e);
       button.textContent = 'Save Changes';
       button.disabled = false;
-    });
+    }
   }
 
   // Start the countdown when page loads

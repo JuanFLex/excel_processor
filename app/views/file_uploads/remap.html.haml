@@ -9,10 +9,10 @@
         · Adjust column mappings and commodity classifications
 
 
-    / Search Bar for Items (OUTSIDE main form)  
+    / Search Bar for Items (OUTSIDE main form)
     .mb-6
       = form_with url: remap_file_upload_path(@processed_file), method: :get, local: true, class: "flex gap-3", id: "search-form" do |f|
-        = f.text_field :search, value: @search_query, placeholder: "Search items by number, description, or commodity...", 
+        = f.text_field :search, value: @search_query, placeholder: "Search items by number, description, or commodity...",
           class: "flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-gray-500 focus:border-gray-500"
         = f.submit "Search Items", class: "px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
         - if @search_query.present?
@@ -20,7 +20,7 @@
 
     / Remapping Table (INSIDE main form)
     = form_with url: reprocess_file_upload_path(@processed_file), method: :patch, local: true, scope: :remap, class: "space-y-8" do |form|
-      
+
       / Column Mapping Section
       .bg-white.border.border-gray-200.rounded-lg.p-6
         %h2.text-sm.font-medium.text-gray-900.uppercase.tracking-wider.mb-6
@@ -62,7 +62,16 @@
                       %td.px-4.py-3.text-sm.text-gray-900
                         = item.commodity
                       %td.px-4.py-3
-                        = lr.text_field "#{item.id}_commodity", value: item.commodity, class: "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500", placeholder: "Type to search commodities...", data: { commodity_autocomplete: true, item_id: item.id, current_value: item.commodity }
+                        .commodity-wrapper.relative
+                          = lr.hidden_field "#{item.id}_commodity", value: item.commodity, class: "commodity-hidden-input", data: { item_id: item.id }
+                          %button.commodity-trigger.w-full.flex.items-center.justify-between.px-3.py-2.text-sm.bg-white.border.border-gray-300.rounded-md.hover:border-gray-400.focus:outline-none.focus:ring-2.focus:ring-gray-500{type: "button"}
+                            %span.commodity-display.truncate.text-left= item.commodity.presence || '(keep current)'
+                            %svg.w-4.h-4.text-gray-400.flex-shrink-0.ml-2{xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20", fill: "currentColor", "aria-hidden" => "true"}
+                              %path{"fill-rule" => "evenodd", d: "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z", "clip-rule" => "evenodd"}
+                          .commodity-panel.hidden
+                            .p-2.border-b.border-gray-100
+                              %input.commodity-search.w-full.px-2.py-1.text-sm.border.border-gray-200.rounded.focus:outline-none.focus:ring-1.focus:ring-gray-400{type: "text", placeholder: "Search commodities..."}
+                            %ul.commodity-list{style: "max-height: 200px; overflow-y: auto;"}
                       %td.px-4.py-3.text-sm
                         %span.scope-indicator{id: "scope-#{item.id}"}
                           %span.inline-flex.px-2.py-1.text-xs.font-medium.rounded{class: item.scope == 'In scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'}
@@ -114,23 +123,124 @@
       / Action Buttons
       .flex.justify-between.pt-6.border-t.border-gray-200
         = link_to "Cancel", file_upload_path(@processed_file), class: "px-6 py-2.5 border border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 text-sm font-medium rounded-md transition-colors"
-        
+
         = form.submit "Apply Changes & Reprocess", class: "px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md transition-colors cursor-pointer", data: { confirm: "This will reprocess the file with your changes. The current results will be replaced. Continue?", disable_with: "Processing..." }
 
-= javascript_include_tag 'commodity_autocomplete', defer: true
-
 :javascript
-  // Initialize autocomplete when page loads
-  document.addEventListener('DOMContentLoaded', function() {
-    // Give a small delay to ensure the external JS is loaded
-    setTimeout(function() {
-      if (window.CommodityAutocomplete) {
-        new window.CommodityAutocomplete();
-      } else {
-        console.error('CommodityAutocomplete class not found');
+  var commodityScopes = #{@commodity_scope_map.to_json};
+  var commodityList = #{@available_commodities.to_json};
+
+  (function() {
+    var openWrapper = null;
+
+    function positionPanel(wrapper) {
+      var trigger = wrapper.querySelector('.commodity-trigger');
+      var panel = wrapper.querySelector('.commodity-panel');
+      var rect = trigger.getBoundingClientRect();
+      panel.style.position = 'fixed';
+      panel.style.top = rect.bottom + 'px';
+      panel.style.left = rect.left + 'px';
+      panel.style.width = rect.width + 'px';
+      panel.style.zIndex = '9999';
+      panel.style.background = 'white';
+      panel.style.border = '1px solid #d1d5db';
+      panel.style.borderRadius = '6px';
+      panel.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+    }
+
+    function renderList(wrapper, query) {
+      var list = wrapper.querySelector('.commodity-list');
+      var filtered = query
+        ? commodityList.filter(function(c) { return c.toLowerCase().indexOf(query.toLowerCase()) !== -1; })
+        : commodityList.slice(0, 100);
+      list.innerHTML = '';
+
+      var keepLi = document.createElement('li');
+      keepLi.textContent = '(keep current)';
+      keepLi.className = 'px-3 py-2 text-sm text-gray-400 cursor-pointer hover:bg-gray-50';
+      keepLi.addEventListener('mousedown', function(e) { e.preventDefault(); selectValue(wrapper, ''); });
+      list.appendChild(keepLi);
+
+      filtered.forEach(function(commodity) {
+        var li = document.createElement('li');
+        li.textContent = commodity;
+        li.className = 'px-3 py-2 text-sm text-gray-900 cursor-pointer hover:bg-blue-50';
+        li.addEventListener('mousedown', function(e) { e.preventDefault(); selectValue(wrapper, commodity); });
+        list.appendChild(li);
+      });
+
+      if (filtered.length === 0 && query) {
+        var empty = document.createElement('li');
+        empty.textContent = 'No matches';
+        empty.className = 'px-3 py-2 text-sm text-gray-400 px-3 py-2';
+        list.appendChild(empty);
       }
-    }, 100);
-  });
+    }
+
+    function openDropdown(wrapper) {
+      if (openWrapper && openWrapper !== wrapper) closeDropdown(openWrapper);
+      var panel = wrapper.querySelector('.commodity-panel');
+      positionPanel(wrapper);
+      panel.classList.remove('hidden');
+      openWrapper = wrapper;
+      var search = wrapper.querySelector('.commodity-search');
+      search.value = '';
+      renderList(wrapper, '');
+      search.focus();
+    }
+
+    function closeDropdown(wrapper) {
+      wrapper.querySelector('.commodity-panel').classList.add('hidden');
+      if (openWrapper === wrapper) openWrapper = null;
+    }
+
+    function selectValue(wrapper, value) {
+      var hidden = wrapper.querySelector('.commodity-hidden-input');
+      var display = wrapper.querySelector('.commodity-display');
+      hidden.value = value;
+      display.textContent = value || '(keep current)';
+
+      var itemId = hidden.dataset.itemId;
+      var indicator = document.getElementById('scope-' + itemId);
+      if (indicator) {
+        var scope = commodityScopes[value];
+        if (value && scope) {
+          var normalized = scope.toLowerCase().trim() === 'in scope' ? 'In scope' : 'Out of scope';
+          var cls = normalized === 'In scope' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50';
+          indicator.innerHTML = '<span class="inline-flex px-2 py-1 text-xs font-medium rounded ' + cls + '">' + normalized + '</span>';
+        } else if (value) {
+          indicator.innerHTML = '<span class="inline-flex px-2 py-1 text-xs font-medium rounded text-gray-600 bg-gray-100">Unknown</span>';
+        }
+      }
+      closeDropdown(wrapper);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.commodity-wrapper').forEach(function(wrapper) {
+        var trigger = wrapper.querySelector('.commodity-trigger');
+        var search = wrapper.querySelector('.commodity-search');
+        var panel = wrapper.querySelector('.commodity-panel');
+
+        trigger.addEventListener('click', function() {
+          panel.classList.contains('hidden') ? openDropdown(wrapper) : closeDropdown(wrapper);
+        });
+
+        search.addEventListener('input', function() {
+          renderList(wrapper, this.value);
+        });
+
+        panel.addEventListener('mousedown', function(e) { e.preventDefault(); });
+      });
+
+      document.addEventListener('click', function(e) {
+        if (openWrapper && !openWrapper.contains(e.target)) closeDropdown(openWrapper);
+      });
+
+      window.addEventListener('scroll', function(e) {
+        if (openWrapper && !openWrapper.contains(e.target)) closeDropdown(openWrapper);
+      }, true);
+    });
+  })();
 
 :css
   body { -webkit-font-smoothing: antialiased; }

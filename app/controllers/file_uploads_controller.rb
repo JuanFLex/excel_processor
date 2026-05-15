@@ -141,9 +141,13 @@ class FileUploadsController < ApplicationController
       
       @items_sample = items_query.limit(20)
       @current_commodities = @processed_file.processed_items.distinct.pluck(:commodity).compact
-      @available_commodities = CommodityReference.distinct.pluck(:level3_desc).compact.sort
       @commodity_counts = @processed_file.processed_items.group(:commodity).count
-      
+      @commodity_scope_map = CommodityReference
+        .where.not(level3_desc: nil)
+        .pluck(:level3_desc, :infinex_scope_status)
+        .each_with_object({}) { |(name, scope), h| h[name] = scope }
+      @available_commodities = @commodity_scope_map.keys.sort
+
       # Preparar opciones para los selects (CORREGIDO: usar todas las columnas del archivo)
       @column_options = [['(not mapped)', nil]] + all_headers.compact.map { |col| [col, col] }
       @commodity_options = [['(keep current)', '']] + @available_commodities.map { |com| [com, com] }
