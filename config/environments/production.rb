@@ -106,4 +106,8 @@ Rails.application.configure do
   # ]
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Subpath and static file serving
+  config.relative_url_root = ENV.fetch("RAILS_RELATIVE_URL_ROOT", "/")
+  config.public_file_server.enabled = true
 end

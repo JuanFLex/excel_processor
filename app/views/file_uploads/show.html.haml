@@ -363,7 +363,7 @@
         // Create form and submit
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = `/file_uploads/#{@processed_file.id}/export_filtered`;
+        form.action = '#{ENV.fetch("RAILS_RELATIVE_URL_ROOT", "")}/file_uploads/#{@processed_file.id}/export_filtered';
         
         // Add CSRF token
         const csrfInput = document.createElement('input');
@@ -398,7 +398,7 @@
         
         setTimeout(() => {
           const element = document.getElementById('reportContent');
-          const filename = `#{@processed_file.original_filename.gsub(/\.[^.]*$/, '')}_report.pdf`;
+          const filename = `#{@processed_file.original_filename.gsub(/\.[^.]*$/, '')}_report.pdf';
           
           html2canvas(element, {
             // Reduce quality settings
@@ -522,7 +522,7 @@
         // Get CSRF token
         const token = document.querySelector('[name="csrf-token"]').content;
 
-        fetch('/file_uploads/lookup_opportunity', {
+        fetch('#{ENV.fetch("RAILS_RELATIVE_URL_ROOT", "")}/file_uploads/lookup_opportunity', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
