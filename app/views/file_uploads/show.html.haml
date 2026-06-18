@@ -398,7 +398,7 @@
         
         setTimeout(() => {
           const element = document.getElementById('reportContent');
-          const filename = `#{@processed_file.original_filename.gsub(/\.[^.]*$/, '')}_report.pdf';
+          const filename = `#{@processed_file.original_filename.gsub(/\.[^.]*$/, '')}_report.pdf`;
           
           html2canvas(element, {
             // Reduce quality settings
