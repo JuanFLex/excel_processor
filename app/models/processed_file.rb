@@ -248,14 +248,14 @@ class ProcessedFile < ApplicationRecord
         include_medical_auto = self.include_medical_auto_grades || false
         grade_filter = include_medical_auto ? "AND COMPONENT_GRADE = 'AUTO'" : "AND COMPONENT_GRADE = 'COMMERCIAL'"
 
-        # NUEVO: Agregar timeout explícito y usar execute para mayor control
-        result = ItemLookup.connection.execute(
-          "SET LOCK_TIMEOUT 60000; SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses
+        ItemLookup.connection.execute("SET LOCK_TIMEOUT 60000")
+        result = ItemLookup.connection.select_all(
+          "SELECT DISTINCT CROSS_REF_MPN FROM INX_dataLabCrosses
            WHERE CROSS_REF_MPN IN (#{escaped_partnos}) AND INFINEX_MPN IS NOT NULL AND DATALAB_STATUS = 'ACTIVE'
            #{grade_filter}"
-        ).to_a
+        )
 
-        chunk_results = result.flatten.to_set
+        chunk_results = result.rows.flatten.to_set
         all_results.merge(chunk_results)
 
         Rails.logger.info "✅ [BULK] Chunk #{index + 1} completed: found #{chunk_results.size} matches"
